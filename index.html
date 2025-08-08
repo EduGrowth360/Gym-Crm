@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gym CRM Dashboard</title>
+    <link rel="manifest" href="manifest.json">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom styles for scrollable notifications and card content */
+        #notificationPanel ul::-webkit-scrollbar,
+        .card-container::-webkit-scrollbar,
+        .overflow-text-container::-webkit-scrollbar {
+            height: 8px; /* Set horizontal scrollbar height */
+            width: 8px; /* Set vertical scrollbar width */
+        }
+        #notificationPanel ul::-webkit-scrollbar-thumb,
+        .card-container::-webkit-scrollbar-thumb,
+        .overflow-text-container::-webkit-scrollbar-thumb {
+            background-color: #d1d5db;
+            border-radius: 4px;
+        }
+        .history-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 1rem;
+            margin-top: 1rem;
+        }
+        .history-item {
+            background-color: #f3f4f6;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        /* New rule to make text scroll horizontally within cards */
+        .overflow-text-container {
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-5">
+    <!-- Header -->
+    <header class="flex justify-between items-center p-5 bg-white shadow-md rounded-b-lg fixed top-0 left-0 w-full z-10">
+        <h1 class="text-2xl font-bold text-blue-600">Gym CRM Dashboard</h1>
+        <div id="notificationIcon" class="relative cursor-pointer text-xl text-gray-700 hover:text-blue-600 transition-colors">
+            🔔<span id="notificationCount" class="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full scale-0 transition-transform origin-center"></span>
+        </div>
+        <!-- Notification Panel -->
+        <div id="notificationPanel" class="hidden absolute top-16 right-5 w-80 bg-white rounded-lg shadow-xl z-20">
+            <h4 class="p-3 bg-blue-600 text-white font-semibold rounded-t-lg">Notifications</h4>
+            <ul id="notificationList" class="list-none m-0 p-3 max-h-80 overflow-y-auto"></ul>
+        </div>
+    </header>
+
+    <!-- Search Bar -->
+    <main class="container mx-auto mt-24">
+        <input class="search-bar w-full md:max-w-md mx-auto block p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
+               type="text"
+               id="searchBar"
+               placeholder="Search client by name...">
+
+        <!-- Custom Message Box -->
+        <div id="messageBox" class="hidden fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
+            <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-center">
+                <p id="messageText" class="text-lg font-semibold mb-4"></p>
+                <button id="closeMessageBox" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition-colors">OK</button>
+            </div>
+        </div>
+
+        <!-- Client Profile Modal (for detailed view) -->
+        <div id="profileModal" class="hidden fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
+            <div class="bg-white p-6 rounded-lg shadow-xl max-w-lg w-full">
+                <div class="flex justify-between items-center border-b pb-3 mb-3">
+                    <h2 class="text-2xl font-bold text-blue-600">Client Profile</h2>
+                    <button id="closeProfileModal" class="text-gray-500 hover:text-gray-700 text-2xl"><i class="fas fa-times"></i></button>
+                </div>
+                <div id="profileContent" class="space-y-2">
+                    <!-- Profile details will be injected here -->
+                </div>
+                <div class="flex space-x-2 mt-4 pt-4 border-t">
+                    <button id="editProfileBtn" class="w-full p-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors">Edit</button>
+                    <button id="deleteProfileBtn" class="w-full p-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors">Delete</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Client Form -->
+        <form id="clientForm" class="bg-white p-6 rounded-lg shadow-md mb-5 max-w-4xl mx-auto">
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="form-group"><label class="block text-gray-700 font-medium mb-1">Client Name</label><input class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" type="text" id="name" required></div>
+                <div class="form-group"><label class="block text-gray-700 font-medium mb-1">Phone Number</label><input class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" type="text" id="phone" pattern="^[0-9]{10}$" title="Enter 10 digit number" required></div>
+                <div class="form-group"><label class="block text-gray-700 font-medium mb-1">Email</label><input class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" type="email" id="email"></div>
+                <div class="form-group"><label class="block text-gray-700 font-medium mb-1">Status</label>
+                    <select id="status" onchange="handleStatusChange()" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="Follow-Up">Follow-Up</option>
+                        <option value="Trial">Trial</option>
+                        <option value="Active">Active</option>
+                        <option value="Expiring Soon">Expiring Soon</option>
+                        <option value="Expired">Expired</option>
+                        <option value="Not Interested">Not Interested</option>
+                    </select>
+                </div>
+                <div class="form-group" id="startDateGroup"><label class="block text-gray-700 font-medium mb-1">Start Date</label><input class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" type="date" id="startDate"></div>
+                <div class="form-group" id="endDateGroup"><label class="block text-gray-700 font-medium mb-1">End Date</label><input class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" type="date" id="endDate"></div>
+            </div>
+            <div class="form-group mt-4"><label class="block text-gray-700 font-medium mb-1">Note</label><textarea class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" id="note" rows="2"></textarea></div>
+            <div class="flex space-x-2 mt-4">
+                <button type="submit" id="submitButton" class="w-full p-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors">Add Client</button>
+                <button type="button" id="cancelButton" class="hidden p-3 bg-gray-400 text-white font-bold rounded-lg hover:bg-gray-500 transition-colors">Cancel Edit</button>
+            </div>
+        </form>
+
+        <!-- Kanban Board -->
+        <div class="board grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5 p-5 bg-white rounded-lg shadow-md">
+            <div class="column bg-gray-50 rounded-lg p-3 shadow-inner" id="Follow-Up" ondragover="allowDrop(event)" ondrop="drop(event)">
+                <h3 class="text-lg font-bold text-blue-600 text-center border-b pb-2 mb-2">Follow-Up</h3>
+                <div class="card-container overflow-y-auto max-h-96"></div>
+            </div>
+            <div class="column bg-gray-50 rounded-lg p-3 shadow-inner" id="Trial" ondragover="allowDrop(event)" ondrop="drop(event)">
+                <h3 class="text-lg font-bold text-blue-600 text-center border-b pb-2 mb-2">Trial</h3>
+                <div class="card-container overflow-y-auto max-h-96"></div>
+            </div>
+            <div class="column bg-gray-50 rounded-lg p-3 shadow-inner" id="Active" ondragover="allowDrop(event)" ondrop="drop(event)">
+                <h3 class="text-lg font-bold text-blue-600 text-center border-b pb-2 mb-2">Active</h3>
+                <div class="card-container overflow-y-auto max-h-96"></div>
+            </div>
+            <div class="column bg-gray-50 rounded-lg p-3 shadow-inner" id="Expiring Soon" ondragover="allowDrop(event)" ondrop="drop(event)">
+                <h3 class="text-lg font-bold text-blue-600 text-center border-b pb-2 mb-2">Expiring Soon</h3>
+                <div class="card-container overflow-y-auto max-h-96"></div>
+            </div>
+            <div class="column bg-gray-50 rounded-lg p-3 shadow-inner" id="Expired" ondragover="allowDrop(event)" ondrop="drop(event)">
+                <h3 class="text-lg font-bold text-blue-600 text-center border-b pb-2 mb-2">Expired</h3>
+                <div class="card-container overflow-y-auto max-h-96"></div>
+            </div>
+            <div class="column bg-gray-50 rounded-lg p-3 shadow-inner" id="Not Interested" ondragover="allowDrop(event)" ondrop="drop(event)">
+                <h3 class="text-lg font-bold text-blue-600 text-center border-b pb-2 mb-2">Not Interested</h3>
+                <div class="card-container overflow-y-auto max-h-96"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // DOM elements
+        const clientForm = document.getElementById('clientForm');
+        const submitButton = document.getElementById('submitButton');
+        const cancelButton = document.getElementById('cancelButton');
+        const board = document.querySelector('.board');
+        const searchBar = document.getElementById('searchBar');
+        const notificationIcon = document.getElementById('notificationIcon');
+        const notificationPanel = document.getElementById('notificationPanel');
+        const notificationCount = document.getElementById('notificationCount');
+        const notificationList = document.getElementById('notificationList');
+        const messageBox = document.getElementById('messageBox');
+        const messageText = document.getElementById('messageText');
+        const closeMessageBox = document.getElementById('closeMessageBox');
+        const profileModal = document.getElementById('profileModal');
+        const profileContent = document.getElementById('profileContent');
+        const closeProfileModalBtn = document.getElementById('closeProfileModal');
+        const editProfileBtn = document.getElementById('editProfileBtn');
+        const deleteProfileBtn = document.getElementById('deleteProfileBtn');
+
+        // State variable to track the card currently being edited or viewed
+        let currentEditingCard = null;
+        let currentViewingCard = null;
+        
+        // This array will hold the client data in memory
+        let allClients = [];
+
+        /**
+         * Saves the current clients array to localStorage.
+         */
+        function saveClientsToLocalStorage() {
+            localStorage.setItem('gym_clients', JSON.stringify(allClients));
+        }
+
+        /**
+         * Loads clients data from localStorage and populates the in-memory array.
+         */
+        function loadClientsFromLocalStorage() {
+            const storedClients = localStorage.getItem('gym_clients');
+            if (storedClients) {
+                allClients = JSON.parse(storedClients);
+                renderAllClients();
+            }
+        }
+
+        /**
+         * Shows or hides a custom message box with a given text.
+         * @param {string} text - The message to display.
+         */
+        function showMessageBox(text) {
+            messageText.textContent = text;
+            messageBox.classList.remove('hidden');
+        }
+
+        /**
+         * Toggles the visibility of date input fields based on the selected status.
+         */
+        function handleStatusChange() {
+            const status = document.getElementById('status').value;
+            const start = document.getElementById('startDateGroup');
+            const end = document.getElementById('endDateGroup');
+            if (status === 'Follow-Up') {
+                start.style.display = 'block';
+                end.style.display = 'none';
+            } else if (status === 'Not Interested') {
+                start.style.display = 'none';
+                end.style.display = 'none';
+            } else {
+                start.style.display = 'block';
+                end.style.display = 'block';
+            }
+        }
+
+        /**
+         * Checks if a membership has expired based on the end date.
+         * @param {string} endDate - The end date in YYYY-MM-DD format.
+         * @returns {boolean} - True if expired, otherwise false.
+         */
+        function isExpired(endDate) {
+            if (!endDate) return false;
+            const today = new Date();
+            const end = new Date(endDate);
+            // set hours to 0 to compare dates without time component
+            today.setHours(0, 0, 0, 0);
+            end.setHours(0, 0, 0, 0);
+            return end < today;
+        }
+        
+        /**
+         * Checks if a membership is expiring soon (exactly 2 days left).
+         * @param {string} endDate - The end date in YYYY-MM-DD format.
+         * @returns {boolean} - True if expiring soon, otherwise false.
+         */
+        function isExpiringSoon(endDate) {
+            if (!endDate) return false;
+            const today = new Date();
+            const end = new Date(endDate);
+            today.setHours(0, 0, 0, 0);
+            end.setHours(0, 0, 0, 0);
+            const twoDaysFromNow = new Date(today);
+            twoDaysFromNow.setDate(today.getDate() + 2);
+            return end.getTime() === twoDaysFromNow.getTime();
+        }
+        
+        /**
+         * Determines the correct status based on a client's end date.
+         * @param {object} data - The client data object.
+         * @returns {string} - The corrected status.
+         */
+        function getCorrectStatus(data) {
+            // Do not override statuses like 'Follow-Up' or 'Not Interested'
+            if (data.status === 'Follow-Up' || data.status === 'Not Interested') {
+                return data.status;
+            }
+
+            // Special case for Trial status
+            if (data.status === 'Trial') {
+                if (isExpired(data.endDate)) {
+                    return 'Expired';
+                }
+                return 'Trial';
+            }
+            
+            // Check for expiration
+            if (isExpired(data.endDate)) {
+                return 'Expired';
+            }
+            
+            // Check for expiring soon (only for non-trial)
+            if (data.status !== 'Trial' && isExpiringSoon(data.endDate)) {
+                return 'Expiring Soon';
+            }
+            
+            // If the status was expired and now has a future date, it should be active.
+            // If it's a new client with a future date, it should also be active.
+            if (data.endDate) {
+                 return 'Active';
+            }
+
+            // Default to 'Follow-Up' if no date is provided
+            return 'Follow-Up';
+        }
+        
+        /**
+         * Checks if a phone number already exists in the database.
+         * @param {string} phone - The phone number to check.
+         * @param {string} currentCardId - The ID of the card being edited, to exclude it from the check.
+         * @returns {boolean} - True if the phone number is a duplicate, otherwise false.
+         */
+        function isPhoneNumberDuplicate(phone, currentCardId) {
+            let isDuplicate = false;
+            allClients.forEach(client => {
+                // Ignore the card being edited
+                if (client.id === currentCardId) {
+                    return;
+                }
+                if (client.phone === phone) {
+                    isDuplicate = true;
+                }
+            });
+            return isDuplicate;
+        }
+
+        /**
+         * Renders all client cards from the in-memory array to the board.
+         * This function is useful for refreshing the UI after a data change.
+         */
+        function renderAllClients() {
+            // Clear all cards from the board first
+            document.querySelectorAll('.card-container').forEach(container => {
+                container.innerHTML = '';
+            });
+
+            allClients.forEach(data => {
+                const card = document.createElement('div');
+                card.id = data.id;
+                card.className = 'card bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow cursor-pointer mb-2 relative';
+                card.setAttribute('data-client', JSON.stringify(data));
+                card.setAttribute('draggable', true);
+                card.innerHTML = `
+                    <strong class="text-blue-600">${data.name}</strong>
+                    <button class="delete-btn absolute top-2 right-2 text-red-500 hover:text-red-700"><i class="fas fa-trash-alt"></i></button>
+                    <div class="card-content mt-2">
+                        ${data.phone ? '<div class="overflow-text-container text-sm text-gray-600">📞 +91-' + data.phone + '</div>' : ''}
+                        ${data.email ? '<div class="overflow-text-container text-sm text-gray-600">📧 ' + data.email + '</div>' : ''}
+                        ${data.note ? '<div class="overflow-text-container text-sm text-gray-600">📝 ' + data.note + '</div>' : ''}
+                        ${data.startDate ? '<div class="overflow-text-container text-xs text-green-500">🟢 Start: ' + data.startDate + '</div>' : ''}
+                        ${data.endDate ? '<div class="overflow-text-container text-xs text-red-500">🔴 End: ' + data.endDate + '</div>' : ''}
+                    </div>
+                `;
+                document.getElementById(data.status).querySelector('.card-container').appendChild(card);
+            });
+        }
+        
+        /**
+         * Creates a new client card and appends it to the correct column.
+         * @param {object} data - The client data object.
+         */
+        function createCard(data) {
+            const initialStatus = data.status;
+            data.status = getCorrectStatus(data);
+            
+            data.id = `client-${Date.now()}`;
+            data.history = [{
+                action: `Client added with status: ${initialStatus}`,
+                timestamp: new Date().toLocaleString()
+            }];
+            
+            allClients.push(data);
+            saveClientsToLocalStorage(); // Save data
+            renderAllClients();
+        }
+
+        /**
+         * Updates an existing client card's content and its associated data.
+         * @param {HTMLElement} card - The card element to update.
+         * @param {object} data - The new client data.
+         */
+        function updateCard(card, data) {
+            const oldData = allClients.find(c => c.id === data.id);
+            const oldStatus = oldData.status;
+            
+            data.status = getCorrectStatus(data);
+
+            const historyEntry = {
+                action: `Client updated from ${oldStatus} to ${data.status}`,
+                timestamp: new Date().toLocaleString()
+            };
+            data.history = oldData.history ? [...oldData.history, historyEntry] : [historyEntry];
+
+            const clientIndex = allClients.findIndex(client => client.id === data.id);
+            if (clientIndex > -1) {
+                allClients[clientIndex] = data;
+            }
+            saveClientsToLocalStorage(); // Save data
+            renderAllClients();
+        }
+
+        /**
+         * Adds a new notification to the notification list and updates the count.
+         * @param {string} text - The notification message.
+         */
+        function addNotification(text) {
+            const item = document.createElement('li');
+            item.className = 'p-2 border-b border-gray-200 last:border-b-0';
+            item.textContent = text;
+            notificationList.appendChild(item);
+
+            let currentCount = parseInt(notificationCount.textContent) || 0;
+            notificationCount.textContent = currentCount + 1;
+            notificationCount.classList.add('scale-100');
+        }
+
+        /**
+         * Populates and shows the client profile modal.
+         * @param {object} data - The client data to display.
+         */
+        function showProfileModal(data) {
+            let profileHtml = `
+                <p><strong>Name:</strong> ${data.name}</p>
+                <p><strong>Phone:</strong> ${data.phone ? '+91-' + data.phone : 'N/A'}</p>
+                <p><strong>Email:</strong> ${data.email || 'N/A'}</p>
+                <p><strong>Status:</strong> ${data.status}</p>
+                <p><strong>Start Date:</strong> ${data.startDate || 'N/A'}</p>
+                <p><strong>End Date:</strong> ${data.endDate || 'N/A'}</p>
+                <p><strong>Note:</strong> ${data.note || 'N/A'}</p>
+            `;
+
+            if (data.history && data.history.length > 0) {
+                let historyHtml = '<div class="history-list mt-4 border-t pt-4"><h3 class="font-bold text-gray-700">Action History</h3>';
+                data.history.forEach(item => {
+                    historyHtml += `<div class="history-item text-sm">${item.action} <br><span class="text-gray-500">(${item.timestamp})</span></div>`;
+                });
+                historyHtml += '</div>';
+                profileHtml += historyHtml;
+            }
+
+            profileContent.innerHTML = profileHtml;
+            profileModal.classList.remove('hidden');
+        }
+
+        // --- New Logic: Automated status updates ---
+        function checkAndMoveClients() {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            let changed = false;
+
+            allClients.forEach(client => {
+                let moved = false;
+                // Check for expired status on trial clients
+                if (client.status === 'Trial' && isExpired(client.endDate)) {
+                    client.status = 'Expired';
+                    addNotification(`${client.name}'s trial has ended and was moved to Expired.`);
+                    moved = true;
+                }
+                
+                // Check for expiring soon (for non-trial clients)
+                if (client.status === 'Active' && client.endDate && isExpiringSoon(client.endDate)) {
+                    client.status = 'Expiring Soon';
+                    addNotification(`${client.name}'s membership is expiring soon!`);
+                    moved = true;
+                }
+
+                // Check for expired clients who have been expired for 7 days
+                if (client.status === 'Expired' && client.endDate) {
+                    const sevenDaysAfterExpiry = new Date(client.endDate);
+                    sevenDaysAfterExpiry.setDate(sevenDaysAfterExpiry.getDate() + 7);
+                    if (today >= sevenDaysAfterExpiry) {
+                        client.status = 'Follow-Up';
+                        addNotification(`${client.name} has been expired for 7 days and was moved to Follow-Up.`);
+                        moved = true;
+                    }
+                }
+                
+                // Check for clients in follow-up for 2 weeks
+                if (client.status === 'Follow-Up' && client.history) {
+                    const lastFollowUpEntry = client.history.findLast(h => h.action.includes('Follow-Up'));
+                    if (lastFollowUpEntry) {
+                        const lastFollowUpDate = new Date(lastFollowUpEntry.timestamp);
+                        const twoWeeksFromLastFollowUp = new Date(lastFollowUpDate);
+                        twoWeeksFromLastFollowUp.setDate(lastFollowUpDate.getDate() + 14);
+                        if (today >= twoWeeksFromLastFollowUp) {
+                            client.status = 'Not Interested';
+                            addNotification(`${client.name} has been in Follow-Up for 2 weeks and was moved to Not Interested.`);
+                            moved = true;
+                        }
+                    }
+                }
+
+                if (moved) {
+                    const historyEntry = {
+                        action: `Status automatically updated to ${client.status}`,
+                        timestamp: new Date().toLocaleString()
+                    };
+                    client.history.push(historyEntry);
+                    changed = true;
+                }
+            });
+            
+            if (changed) {
+                saveClientsToLocalStorage(); // Save changes
+                renderAllClients();
+            }
+        }
+
+        // Run the check every 10 seconds
+        setInterval(checkAndMoveClients, 10000);
+
+
+        // --- Drag and Drop Functions ---
+        function allowDrop(event) {
+            event.preventDefault();
+        }
+
+        function drag(event) {
+            const card = event.target.closest('.card');
+            if (card) {
+                event.dataTransfer.setData("cardId", card.id);
+            }
+        }
+
+        function drop(event) {
+            event.preventDefault();
+            const newColumn = event.target.closest('.column');
+            if (!newColumn) return;
+
+            const cardId = event.dataTransfer.getData("cardId");
+            const card = document.getElementById(cardId);
+            if (card) {
+                const data = allClients.find(client => client.id === cardId);
+                const newStatus = newColumn.id;
+                
+                document.getElementById('name').value = data.name;
+                document.getElementById('phone').value = data.phone;
+                document.getElementById('email').value = data.email;
+                document.getElementById('status').value = newStatus;
+                document.getElementById('startDate').value = data.startDate;
+                document.getElementById('endDate').value = data.endDate;
+                document.getElementById('note').value = data.note;
+                
+                currentEditingCard = card;
+                submitButton.textContent = 'Update Client';
+                cancelButton.classList.remove('hidden');
+                
+                clientForm.scrollIntoView({ behavior: 'smooth' });
+                handleStatusChange();
+            }
+        }
+
+
+        // --- Event Listeners ---
+
+        clientForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const name = document.getElementById('name').value;
+            const phone = document.getElementById('phone').value;
+            const status = document.getElementById('status').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const email = document.getElementById('email').value;
+            const note = document.getElementById('note').value;
+            
+            if (!/^[0-9]{10}$/.test(phone)) {
+                showMessageBox('Please enter a valid 10-digit mobile number.');
+                return;
+            }
+
+            if (!startDate) {
+                showMessageBox('A start date is required to add or update a client.');
+                return;
+            }
+            if (status !== 'Follow-Up' && status !== 'Not Interested' && !endDate) {
+                 showMessageBox('An end date is required for this status.');
+                 return;
+            }
+            
+            const cardId = currentEditingCard ? currentEditingCard.id : null;
+            if (isPhoneNumberDuplicate(phone, cardId)) {
+                showMessageBox('This phone number already exists in the database.');
+                return;
+            }
+            
+            if (status !== 'Follow-Up' && startDate && endDate && new Date(startDate) > new Date(endDate)) {
+                 showMessageBox('The end date cannot be before the start date.');
+                 return;
+            }
+
+            const data = { name, phone, email, status, startDate, endDate, note, id: currentEditingCard?.id };
+            
+            if (currentEditingCard) {
+                updateCard(currentEditingCard, data);
+                addNotification(`${name} updated to ${data.status}`);
+                currentEditingCard = null;
+                submitButton.textContent = 'Add Client';
+                cancelButton.classList.add('hidden');
+            } else {
+                createCard(data);
+                addNotification(`${name} added to ${data.status}`);
+            }
+
+            this.reset();
+            handleStatusChange();
+        });
+        
+        board.addEventListener('click', function(e) {
+            const card = e.target.closest('.card');
+            if (!card) return;
+
+            if (e.target.closest('.delete-btn')) {
+                const clientData = allClients.find(c => c.id === card.id);
+                
+                const clientIndex = allClients.findIndex(c => c.id === clientData.id);
+                if (clientIndex > -1) {
+                    allClients.splice(clientIndex, 1);
+                }
+                saveClientsToLocalStorage(); // Save changes
+                card.remove();
+                addNotification(`${clientData.name} was deleted.`);
+                if (currentEditingCard === card) {
+                    clientForm.reset();
+                    currentEditingCard = null;
+                    submitButton.textContent = 'Add Client';
+                    cancelButton.classList.add('hidden');
+                }
+                return;
+            }
+
+            const clientData = allClients.find(c => c.id === card.id);
+            currentViewingCard = card;
+            showProfileModal(clientData);
+        });
+
+        board.addEventListener('dragstart', function(e) {
+            const card = e.target.closest('.card');
+            if (card) {
+                e.dataTransfer.setData('cardId', card.id);
+            }
+        });
+
+        cancelButton.addEventListener('click', function() {
+            clientForm.reset();
+            currentEditingCard = null;
+            submitButton.textContent = 'Add Client';
+            cancelButton.classList.add('hidden');
+            handleStatusChange();
+        });
+
+        closeProfileModalBtn.addEventListener('click', () => {
+            profileModal.classList.add('hidden');
+        });
+
+        editProfileBtn.addEventListener('click', () => {
+            if (currentViewingCard) {
+                const data = allClients.find(c => c.id === currentViewingCard.id);
+                currentEditingCard = currentViewingCard;
+                document.getElementById('name').value = data.name;
+                document.getElementById('phone').value = data.phone;
+                document.getElementById('email').value = data.email;
+                document.getElementById('status').value = data.status;
+                document.getElementById('startDate').value = data.startDate;
+                document.getElementById('endDate').value = data.endDate;
+                document.getElementById('note').value = data.note;
+
+                submitButton.textContent = 'Update Client';
+                cancelButton.classList.remove('hidden');
+                handleStatusChange();
+            }
+            profileModal.classList.add('hidden');
+        });
+
+        deleteProfileBtn.addEventListener('click', () => {
+            if (currentViewingCard) {
+                const clientData = allClients.find(c => c.id === currentViewingCard.id);
+                
+                const clientIndex = allClients.findIndex(c => c.id === clientData.id);
+                if (clientIndex > -1) {
+                    allClients.splice(clientIndex, 1);
+                }
+                saveClientsToLocalStorage(); // Save changes
+                currentViewingCard.remove();
+                addNotification(`${clientData.name} was deleted.`);
+                if (currentEditingCard === currentViewingCard) {
+                    clientForm.reset();
+                    currentEditingCard = null;
+                    submitButton.textContent = 'Add Client';
+                    cancelButton.classList.add('hidden');
+                }
+            }
+            profileModal.classList.add('hidden');
+        });
+
+        notificationIcon.addEventListener('click', () => {
+            notificationPanel.classList.toggle('hidden');
+            if (!notificationPanel.classList.contains('hidden')) {
+                notificationCount.classList.remove('scale-100');
+                notificationCount.textContent = '';
+            }
+        });
+        
+        closeMessageBox.addEventListener('click', () => {
+            messageBox.classList.add('hidden');
+        });
+
+        searchBar.addEventListener('input', function() {
+            const val = this.value.toLowerCase();
+            document.querySelectorAll('.card').forEach(card => {
+                const clientData = allClients.find(c => c.id === card.id);
+                if (clientData) {
+                    const textContent = `${clientData.name} ${clientData.phone} ${clientData.email} ${clientData.note}`.toLowerCase();
+                    card.style.display = textContent.includes(val) ? 'block' : 'none';
+                }
+            });
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadClientsFromLocalStorage(); // Load data on startup
+            handleStatusChange();
+        });
+        
+        // PWA service worker registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js').then(registration => {
+                    console.log('ServiceWorker registered: ', registration);
+                }).catch(registrationError => {
+                    console.log('ServiceWorker registration failed: ', registrationError);
+                });
+            });
+        }
+    </script>
+</body>
+</html>
