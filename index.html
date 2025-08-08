@@ -17,8 +17,8 @@
         #notificationPanel ul::-webkit-scrollbar,
         .card-container::-webkit-scrollbar,
         .overflow-text-container::-webkit-scrollbar {
-            height: 8px; /* Set horizontal scrollbar height */
-            width: 8px; /* Set vertical scrollbar width */
+            height: 8px;
+            width: 8px;
         }
         #notificationPanel ul::-webkit-scrollbar-thumb,
         .card-container::-webkit-scrollbar-thumb,
@@ -39,7 +39,6 @@
             border-radius: 0.5rem;
             margin-bottom: 0.5rem;
         }
-        /* New rule to make text scroll horizontally within cards */
         .overflow-text-container {
             overflow-x: auto;
             white-space: nowrap;
@@ -47,108 +46,196 @@
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen p-5">
-    <!-- Header -->
-    <header class="flex justify-between items-center p-5 bg-white shadow-md rounded-b-lg fixed top-0 left-0 w-full z-10">
-        <h1 class="text-2xl font-bold text-blue-600">Gym CRM Dashboard</h1>
-        <div id="notificationIcon" class="relative cursor-pointer text-xl text-gray-700 hover:text-blue-600 transition-colors">
-            🔔<span id="notificationCount" class="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full scale-0 transition-transform origin-center"></span>
+    <!-- Login/Signup UI -->
+    <div id="authScreen" class="flex items-center justify-center min-h-screen">
+        <div class="bg-white p-8 rounded-lg shadow-md max-w-sm w-full">
+            <h2 id="authTitle" class="text-2xl font-bold text-blue-600 mb-6 text-center">Sign Up</h2>
+            <form id="authForm" class="space-y-4">
+                <input type="email" id="authEmail" placeholder="Email" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                <input type="password" id="authPassword" placeholder="Password" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                <button type="submit" id="authSubmitBtn" class="w-full p-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors">Sign Up</button>
+            </form>
+            <button id="authToggleBtn" class="w-full mt-4 text-sm text-blue-600 hover:text-blue-800">Already have an account? Log In</button>
         </div>
-        <!-- Notification Panel -->
-        <div id="notificationPanel" class="hidden absolute top-16 right-5 w-80 bg-white rounded-lg shadow-xl z-20">
-            <h4 class="p-3 bg-blue-600 text-white font-semibold rounded-t-lg">Notifications</h4>
-            <ul id="notificationList" class="list-none m-0 p-3 max-h-80 overflow-y-auto"></ul>
-        </div>
-    </header>
-
-    <!-- Search Bar -->
-    <main class="container mx-auto mt-24">
-        <input class="search-bar w-full md:max-w-md mx-auto block p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
-               type="text"
-               id="searchBar"
-               placeholder="Search client by name...">
-
-        <!-- Custom Message Box -->
-        <div id="messageBox" class="hidden fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
-            <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-center">
-                <p id="messageText" class="text-lg font-semibold mb-4"></p>
-                <button id="closeMessageBox" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition-colors">OK</button>
-            </div>
-        </div>
-
-        <!-- Client Profile Modal (for detailed view) -->
-        <div id="profileModal" class="hidden fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
-            <div class="bg-white p-6 rounded-lg shadow-xl max-w-lg w-full">
-                <div class="flex justify-between items-center border-b pb-3 mb-3">
-                    <h2 class="text-2xl font-bold text-blue-600">Client Profile</h2>
-                    <button id="closeProfileModal" class="text-gray-500 hover:text-gray-700 text-2xl"><i class="fas fa-times"></i></button>
+    </div>
+    
+    <!-- Main App UI -->
+    <div id="mainApp" class="hidden">
+        <!-- Header -->
+        <header class="flex justify-between items-center p-5 bg-white shadow-md rounded-b-lg fixed top-0 left-0 w-full z-10">
+            <h1 class="text-2xl font-bold text-blue-600">Gym CRM Dashboard</h1>
+            <div class="flex items-center space-x-4">
+                <div id="notificationIcon" class="relative cursor-pointer text-xl text-gray-700 hover:text-blue-600 transition-colors">
+                    🔔<span id="notificationCount" class="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full scale-0 transition-transform origin-center"></span>
                 </div>
-                <div id="profileContent" class="space-y-2">
-                    <!-- Profile details will be injected here -->
-                </div>
-                <div class="flex space-x-2 mt-4 pt-4 border-t">
-                    <button id="editProfileBtn" class="w-full p-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors">Edit</button>
-                    <button id="deleteProfileBtn" class="w-full p-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors">Delete</button>
-                </div>
+                <button id="logoutBtn" class="p-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-colors">Logout</button>
             </div>
-        </div>
+            <!-- Notification Panel -->
+            <div id="notificationPanel" class="hidden absolute top-16 right-5 w-80 bg-white rounded-lg shadow-xl z-20">
+                <h4 class="p-3 bg-blue-600 text-white font-semibold rounded-t-lg">Notifications</h4>
+                <ul id="notificationList" class="list-none m-0 p-3 max-h-80 overflow-y-auto"></ul>
+            </div>
+        </header>
 
-        <!-- Client Form -->
-        <form id="clientForm" class="bg-white p-6 rounded-lg shadow-md mb-5 max-w-4xl mx-auto">
-            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div class="form-group"><label class="block text-gray-700 font-medium mb-1">Client Name</label><input class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" type="text" id="name" required></div>
-                <div class="form-group"><label class="block text-gray-700 font-medium mb-1">Phone Number</label><input class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" type="text" id="phone" pattern="^[0-9]{10}$" title="Enter 10 digit number" required></div>
-                <div class="form-group"><label class="block text-gray-700 font-medium mb-1">Email</label><input class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" type="email" id="email"></div>
-                <div class="form-group"><label class="block text-gray-700 font-medium mb-1">Status</label>
-                    <select id="status" onchange="handleStatusChange()" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="Follow-Up">Follow-Up</option>
-                        <option value="Trial">Trial</option>
-                        <option value="Active">Active</option>
-                        <option value="Expiring Soon">Expiring Soon</option>
-                        <option value="Expired">Expired</option>
-                        <option value="Not Interested">Not Interested</option>
-                    </select>
+        <!-- Search Bar -->
+        <main class="container mx-auto mt-24">
+            <input class="search-bar w-full md:max-w-md mx-auto block p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
+                   type="text"
+                   id="searchBar"
+                   placeholder="Search client by name...">
+
+            <!-- Custom Message Box -->
+            <div id="messageBox" class="hidden fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
+                <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-center">
+                    <p id="messageText" class="text-lg font-semibold mb-4"></p>
+                    <button id="closeMessageBox" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition-colors">OK</button>
                 </div>
-                <div class="form-group" id="startDateGroup"><label class="block text-gray-700 font-medium mb-1">Start Date</label><input class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" type="date" id="startDate"></div>
-                <div class="form-group" id="endDateGroup"><label class="block text-gray-700 font-medium mb-1">End Date</label><input class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" type="date" id="endDate"></div>
             </div>
-            <div class="form-group mt-4"><label class="block text-gray-700 font-medium mb-1">Note</label><textarea class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" id="note" rows="2"></textarea></div>
-            <div class="flex space-x-2 mt-4">
-                <button type="submit" id="submitButton" class="w-full p-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors">Add Client</button>
-                <button type="button" id="cancelButton" class="hidden p-3 bg-gray-400 text-white font-bold rounded-lg hover:bg-gray-500 transition-colors">Cancel Edit</button>
-            </div>
-        </form>
 
-        <!-- Kanban Board -->
-        <div class="board grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5 p-5 bg-white rounded-lg shadow-md">
-            <div class="column bg-gray-50 rounded-lg p-3 shadow-inner" id="Follow-Up" ondragover="allowDrop(event)" ondrop="drop(event)">
-                <h3 class="text-lg font-bold text-blue-600 text-center border-b pb-2 mb-2">Follow-Up</h3>
-                <div class="card-container overflow-y-auto max-h-96"></div>
+            <!-- Client Profile Modal (for detailed view) -->
+            <div id="profileModal" class="hidden fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
+                <div class="bg-white p-6 rounded-lg shadow-xl max-w-lg w-full">
+                    <div class="flex justify-between items-center border-b pb-3 mb-3">
+                        <h2 class="text-2xl font-bold text-blue-600">Client Profile</h2>
+                        <button id="closeProfileModal" class="text-gray-500 hover:text-gray-700 text-2xl"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div id="profileContent" class="space-y-2">
+                        <!-- Profile details will be injected here -->
+                    </div>
+                    <div class="flex space-x-2 mt-4 pt-4 border-t">
+                        <button id="editProfileBtn" class="w-full p-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors">Edit</button>
+                        <button id="deleteProfileBtn" class="w-full p-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors">Delete</button>
+                    </div>
+                </div>
             </div>
-            <div class="column bg-gray-50 rounded-lg p-3 shadow-inner" id="Trial" ondragover="allowDrop(event)" ondrop="drop(event)">
-                <h3 class="text-lg font-bold text-blue-600 text-center border-b pb-2 mb-2">Trial</h3>
-                <div class="card-container overflow-y-auto max-h-96"></div>
-            </div>
-            <div class="column bg-gray-50 rounded-lg p-3 shadow-inner" id="Active" ondragover="allowDrop(event)" ondrop="drop(event)">
-                <h3 class="text-lg font-bold text-blue-600 text-center border-b pb-2 mb-2">Active</h3>
-                <div class="card-container overflow-y-auto max-h-96"></div>
-            </div>
-            <div class="column bg-gray-50 rounded-lg p-3 shadow-inner" id="Expiring Soon" ondragover="allowDrop(event)" ondrop="drop(event)">
-                <h3 class="text-lg font-bold text-blue-600 text-center border-b pb-2 mb-2">Expiring Soon</h3>
-                <div class="card-container overflow-y-auto max-h-96"></div>
-            </div>
-            <div class="column bg-gray-50 rounded-lg p-3 shadow-inner" id="Expired" ondragover="allowDrop(event)" ondrop="drop(event)">
-                <h3 class="text-lg font-bold text-blue-600 text-center border-b pb-2 mb-2">Expired</h3>
-                <div class="card-container overflow-y-auto max-h-96"></div>
-            </div>
-            <div class="column bg-gray-50 rounded-lg p-3 shadow-inner" id="Not Interested" ondragover="allowDrop(event)" ondrop="drop(event)">
-                <h3 class="text-lg font-bold text-blue-600 text-center border-b pb-2 mb-2">Not Interested</h3>
-                <div class="card-container overflow-y-auto max-h-96"></div>
-            </div>
-        </div>
-    </main>
 
-    <script>
-        // DOM elements
+            <!-- Client Form -->
+            <form id="clientForm" class="bg-white p-6 rounded-lg shadow-md mb-5 max-w-4xl mx-auto">
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="form-group"><label class="block text-gray-700 font-medium mb-1">Client Name</label><input class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" type="text" id="name" required></div>
+                    <div class="form-group"><label class="block text-gray-700 font-medium mb-1">Phone Number</label><input class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" type="text" id="phone" pattern="^[0-9]{10}$" title="Enter 10 digit number" required></div>
+                    <div class="form-group"><label class="block text-gray-700 font-medium mb-1">Email</label><input class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" type="email" id="email"></div>
+                    <div class="form-group"><label class="block text-gray-700 font-medium mb-1">Status</label>
+                        <select id="status" onchange="handleStatusChange()" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="Follow-Up">Follow-Up</option>
+                            <option value="Trial">Trial</option>
+                            <option value="Active">Active</option>
+                            <option value="Expiring Soon">Expiring Soon</option>
+                            <option value="Expired">Expired</option>
+                            <option value="Not Interested">Not Interested</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="startDateGroup"><label class="block text-gray-700 font-medium mb-1">Start Date</label><input class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" type="date" id="startDate"></div>
+                    <div class="form-group" id="endDateGroup"><label class="block text-gray-700 font-medium mb-1">End Date</label><input class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" type="date" id="endDate"></div>
+                </div>
+                <div class="form-group mt-4"><label class="block text-gray-700 font-medium mb-1">Note</label><textarea class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" id="note" rows="2"></textarea></div>
+                <div class="flex space-x-2 mt-4">
+                    <button type="submit" id="submitButton" class="w-full p-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors">Add Client</button>
+                    <button type="button" id="cancelButton" class="hidden p-3 bg-gray-400 text-white font-bold rounded-lg hover:bg-gray-500 transition-colors">Cancel Edit</button>
+                </div>
+            </form>
+
+            <!-- Kanban Board -->
+            <div class="board grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5 p-5 bg-white rounded-lg shadow-md">
+                <div class="column bg-gray-50 rounded-lg p-3 shadow-inner" id="Follow-Up" ondragover="allowDrop(event)" ondrop="drop(event)">
+                    <h3 class="text-lg font-bold text-blue-600 text-center border-b pb-2 mb-2">Follow-Up</h3>
+                    <div class="card-container overflow-y-auto max-h-96"></div>
+                </div>
+                <div class="column bg-gray-50 rounded-lg p-3 shadow-inner" id="Trial" ondragover="allowDrop(event)" ondrop="drop(event)">
+                    <h3 class="text-lg font-bold text-blue-600 text-center border-b pb-2 mb-2">Trial</h3>
+                    <div class="card-container overflow-y-auto max-h-96"></div>
+                </div>
+                <div class="column bg-gray-50 rounded-lg p-3 shadow-inner" id="Active" ondragover="allowDrop(event)" ondrop="drop(event)">
+                    <h3 class="text-lg font-bold text-blue-600 text-center border-b pb-2 mb-2">Active</h3>
+                    <div class="card-container overflow-y-auto max-h-96"></div>
+                </div>
+                <div class="column bg-gray-50 rounded-lg p-3 shadow-inner" id="Expiring Soon" ondragover="allowDrop(event)" ondrop="drop(event)">
+                    <h3 class="text-lg font-bold text-blue-600 text-center border-b pb-2 mb-2">Expiring Soon</h3>
+                    <div class="card-container overflow-y-auto max-h-96"></div>
+                </div>
+                <div class="column bg-gray-50 rounded-lg p-3 shadow-inner" id="Expired" ondragover="allowDrop(event)" ondrop="drop(event)">
+                    <h3 class="text-lg font-bold text-blue-600 text-center border-b pb-2 mb-2">Expired</h3>
+                    <div class="card-container overflow-y-auto max-h-96"></div>
+                </div>
+                <div class="column bg-gray-50 rounded-lg p-3 shadow-inner" id="Not Interested" ondragover="allowDrop(event)" ondrop="drop(event)">
+                    <h3 class="text-lg font-bold text-blue-600 text-center border-b pb-2 mb-2">Not Interested</h3>
+                    <div class="card-container overflow-y-auto max-h-96"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        // Firebase SDK Imports (using modular syntax for better performance)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, query, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        // Your Firebase project configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAReQuF0j0z1qwCn0pCMbTfQXZ3bBPpSSw",
+            authDomain: "gym-crm-73500.firebaseapp.com",
+            projectId: "gym-crm-73500",
+            storageBucket: "gym-crm-73500.firebasestorage.app",
+            messagingSenderId: "128869821727",
+            appId: "1:128869821727:web:32a0f23a610a21ef71142a",
+            measurementId: "G-4MREPDXE60"
+        };
+        
+        // Initialize Firebase services
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        // DOM elements for Auth UI
+        const authScreen = document.getElementById('authScreen');
+        const authTitle = document.getElementById('authTitle');
+        const authForm = document.getElementById('authForm');
+        const authEmail = document.getElementById('authEmail');
+        const authPassword = document.getElementById('authPassword');
+        const authSubmitBtn = document.getElementById('authSubmitBtn');
+        const authToggleBtn = document.getElementById('authToggleBtn');
+        const mainApp = document.getElementById('mainApp');
+        const logoutBtn = document.getElementById('logoutBtn');
+        let isLoginMode = false;
+        let currentUser = null;
+
+        // --- Auth UI Logic ---
+        authToggleBtn.addEventListener('click', () => {
+            isLoginMode = !isLoginMode;
+            if (isLoginMode) {
+                authTitle.textContent = 'Log In';
+                authSubmitBtn.textContent = 'Log In';
+                authToggleBtn.textContent = 'Need an account? Sign Up';
+            } else {
+                authTitle.textContent = 'Sign Up';
+                authSubmitBtn.textContent = 'Sign Up';
+                authToggleBtn.textContent = 'Already have an account? Log In';
+            }
+        });
+
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = authEmail.value;
+            const password = authPassword.value;
+
+            try {
+                if (isLoginMode) {
+                    await signInWithEmailAndPassword(auth, email, password);
+                } else {
+                    await createUserWithEmailAndPassword(auth, email, password);
+                }
+            } catch (error) {
+                showMessageBox(`Authentication error: ${error.message}`);
+            }
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            await signOut(auth);
+            // After logout, UI will be reset by onAuthStateChanged listener
+        });
+
+        // --- Core App Logic (Now Firebase-connected) ---
         const clientForm = document.getElementById('clientForm');
         const submitButton = document.getElementById('submitButton');
         const cancelButton = document.getElementById('cancelButton');
@@ -167,155 +254,49 @@
         const editProfileBtn = document.getElementById('editProfileBtn');
         const deleteProfileBtn = document.getElementById('deleteProfileBtn');
 
-        // State variable to track the card currently being edited or viewed
         let currentEditingCard = null;
         let currentViewingCard = null;
-        
-        // This array will hold the client data in memory
         let allClients = [];
 
-        /**
-         * Saves the current clients array to localStorage.
-         */
-        function saveClientsToLocalStorage() {
-            localStorage.setItem('gym_clients', JSON.stringify(allClients));
-        }
+        // Firestore collection reference for the current user's clients
+        let clientsColRef;
+        let unsubscribeFromClients = () => {};
 
-        /**
-         * Loads clients data from localStorage and populates the in-memory array.
-         */
-        function loadClientsFromLocalStorage() {
-            const storedClients = localStorage.getItem('gym_clients');
-            if (storedClients) {
-                allClients = JSON.parse(storedClients);
+        // Listen for authentication state changes
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                authScreen.classList.add('hidden');
+                mainApp.classList.remove('hidden');
+                
+                // Initialize Firestore collection for the authenticated user
+                clientsColRef = collection(db, `users/${currentUser.uid}/clients`);
+                
+                // Set up a real-time listener for the user's client data
+                unsubscribeFromClients = onSnapshot(clientsColRef, (snapshot) => {
+                    const clientsFromDb = [];
+                    snapshot.forEach(doc => {
+                        clientsFromDb.push({ id: doc.id, ...doc.data() });
+                    });
+                    allClients = clientsFromDb;
+                    checkAndMoveClients(); // Run auto-logic after loading data
+                    renderAllClients();
+                });
+            } else {
+                currentUser = null;
+                authScreen.classList.remove('hidden');
+                mainApp.classList.add('hidden');
+                // Clean up listener when user logs out
+                unsubscribeFromClients();
+                allClients = [];
                 renderAllClients();
             }
-        }
-
-        /**
-         * Shows or hides a custom message box with a given text.
-         * @param {string} text - The message to display.
-         */
-        function showMessageBox(text) {
-            messageText.textContent = text;
-            messageBox.classList.remove('hidden');
-        }
-
-        /**
-         * Toggles the visibility of date input fields based on the selected status.
-         */
-        function handleStatusChange() {
-            const status = document.getElementById('status').value;
-            const start = document.getElementById('startDateGroup');
-            const end = document.getElementById('endDateGroup');
-            if (status === 'Follow-Up') {
-                start.style.display = 'block';
-                end.style.display = 'none';
-            } else if (status === 'Not Interested') {
-                start.style.display = 'none';
-                end.style.display = 'none';
-            } else {
-                start.style.display = 'block';
-                end.style.display = 'block';
-            }
-        }
-
-        /**
-         * Checks if a membership has expired based on the end date.
-         * @param {string} endDate - The end date in YYYY-MM-DD format.
-         * @returns {boolean} - True if expired, otherwise false.
-         */
-        function isExpired(endDate) {
-            if (!endDate) return false;
-            const today = new Date();
-            const end = new Date(endDate);
-            // set hours to 0 to compare dates without time component
-            today.setHours(0, 0, 0, 0);
-            end.setHours(0, 0, 0, 0);
-            return end < today;
-        }
-        
-        /**
-         * Checks if a membership is expiring soon (2 days or less from today).
-         * @param {string} endDate - The end date in YYYY-MM-DD format.
-         * @returns {boolean} - True if expiring soon, otherwise false.
-         */
-        function isExpiringSoon(endDate) {
-            if (!endDate) return false;
-            const today = new Date();
-            const end = new Date(endDate);
-            today.setHours(0, 0, 0, 0);
-            end.setHours(0, 0, 0, 0);
-            const twoDaysFromNow = new Date(today);
-            twoDaysFromNow.setDate(today.getDate() + 2);
-            return end <= twoDaysFromNow && end >= today;
-        }
-        
-        /**
-         * Determines the correct status based on a client's end date.
-         * @param {object} data - The client data object.
-         * @returns {string} - The corrected status.
-         */
-        function getCorrectStatus(data) {
-            // Do not override statuses like 'Follow-Up' or 'Not Interested'
-            if (data.status === 'Follow-Up' || data.status === 'Not Interested') {
-                return data.status;
-            }
-
-            // Special case for Trial status
-            if (data.status === 'Trial') {
-                if (isExpired(data.endDate)) {
-                    return 'Expired';
-                }
-                return 'Trial';
-            }
-            
-            // Check for expiration
-            if (isExpired(data.endDate)) {
-                return 'Expired';
-            }
-            
-            // Check for expiring soon (only for non-trial)
-            if (data.status !== 'Trial' && isExpiringSoon(data.endDate)) {
-                return 'Expiring Soon';
-            }
-            
-            // If the status was expired and now has a future date, it should be active.
-            // If it's a new client with a future date, it should also be active.
-            if (data.endDate) {
-                 return 'Active';
-            }
-
-            // Default to 'Follow-Up' if no date is provided
-            return 'Follow-Up';
-        }
-        
-        /**
-         * Checks if a phone number already exists in the database.
-         * @param {string} phone - The phone number to check.
-         * @param {string} currentCardId - The ID of the card being edited, to exclude it from the check.
-         * @returns {boolean} - True if the phone number is a duplicate, otherwise false.
-         */
-        function isPhoneNumberDuplicate(phone, currentCardId) {
-            let isDuplicate = false;
-            allClients.forEach(client => {
-                // Ignore the card being edited
-                if (client.id === currentCardId) {
-                    return;
-                }
-                if (client.phone === phone) {
-                    isDuplicate = true;
-                }
-            });
-            return isDuplicate;
-        }
+        });
 
         /**
          * Renders all client cards from the in-memory array to the board.
-         * This function is useful for refreshing the UI after a data change.
          */
         function renderAllClients() {
-            // Clear all cards from the board first
             document.querySelectorAll('.card-container').forEach(container => {
                 container.innerHTML = '';
             });
@@ -342,31 +323,28 @@
         }
         
         /**
-         * Creates a new client card and appends it to the correct column.
+         * Creates a new client in the Firestore database.
          * @param {object} data - The client data object.
          */
-        function createCard(data) {
+        async function createClient(data) {
             const initialStatus = data.status;
             data.status = getCorrectStatus(data);
             
-            data.id = `client-${Date.now()}`;
             data.history = [{
                 action: `Client added with status: ${initialStatus}`,
                 timestamp: new Date().toLocaleString()
             }];
             
-            allClients.push(data);
-            saveClientsToLocalStorage(); // Save data
-            renderAllClients();
+            await setDoc(doc(clientsColRef), data);
         }
 
         /**
-         * Updates an existing client card's content and its associated data.
-         * @param {HTMLElement} card - The card element to update.
+         * Updates an existing client in the Firestore database.
+         * @param {string} id - The ID of the client document.
          * @param {object} data - The new client data.
          */
-        function updateCard(card, data) {
-            const oldData = allClients.find(c => c.id === data.id);
+        async function updateClient(id, data) {
+            const oldData = allClients.find(c => c.id === id);
             const oldStatus = oldData.status;
             
             data.status = getCorrectStatus(data);
@@ -377,18 +355,91 @@
             };
             data.history = oldData.history ? [...oldData.history, historyEntry] : [historyEntry];
 
-            const clientIndex = allClients.findIndex(client => client.id === data.id);
-            if (clientIndex > -1) {
-                allClients[clientIndex] = data;
-            }
-            saveClientsToLocalStorage(); // Save data
-            renderAllClients();
+            await setDoc(doc(clientsColRef, id), data);
+        }
+        
+        async function deleteClient(id) {
+            await deleteDoc(doc(clientsColRef, id));
         }
 
-        /**
-         * Adds a new notification to the notification list and updates the count.
-         * @param {string} text - The notification message.
-         */
+        // The rest of the functions (showMessageBox, handleStatusChange, etc.) are the same.
+        // They now work with the allClients array which is synced from Firestore.
+        function showMessageBox(text) {
+            messageText.textContent = text;
+            messageBox.classList.remove('hidden');
+        }
+
+        function handleStatusChange() {
+            const status = document.getElementById('status').value;
+            const start = document.getElementById('startDateGroup');
+            const end = document.getElementById('endDateGroup');
+            if (status === 'Follow-Up') {
+                start.style.display = 'block';
+                end.style.display = 'none';
+            } else if (status === 'Not Interested') {
+                start.style.display = 'none';
+                end.style.display = 'none';
+            } else {
+                start.style.display = 'block';
+                end.style.display = 'block';
+            }
+        }
+
+        function isExpired(endDate) {
+            if (!endDate) return false;
+            const today = new Date();
+            const end = new Date(endDate);
+            today.setHours(0, 0, 0, 0);
+            end.setHours(0, 0, 0, 0);
+            return end < today;
+        }
+
+        function isExpiringSoon(endDate) {
+            if (!endDate) return false;
+            const today = new Date();
+            const end = new Date(endDate);
+            today.setHours(0, 0, 0, 0);
+            end.setHours(0, 0, 0, 0);
+            const twoDaysFromNow = new Date(today);
+            twoDaysFromNow.setDate(today.getDate() + 2);
+            return end <= twoDaysFromNow && end >= today;
+        }
+
+        function getCorrectStatus(data) {
+            if (data.status === 'Follow-Up' || data.status === 'Not Interested') {
+                return data.status;
+            }
+            if (data.status === 'Trial') {
+                if (isExpired(data.endDate)) {
+                    return 'Expired';
+                }
+                return 'Trial';
+            }
+            if (isExpired(data.endDate)) {
+                return 'Expired';
+            }
+            if (data.status !== 'Trial' && isExpiringSoon(data.endDate)) {
+                return 'Expiring Soon';
+            }
+            if (data.endDate) {
+                 return 'Active';
+            }
+            return 'Follow-Up';
+        }
+
+        function isPhoneNumberDuplicate(phone, currentCardId) {
+            let isDuplicate = false;
+            allClients.forEach(client => {
+                if (client.id === currentCardId) {
+                    return;
+                }
+                if (client.phone === phone) {
+                    isDuplicate = true;
+                }
+            });
+            return isDuplicate;
+        }
+        
         function addNotification(text) {
             const item = document.createElement('li');
             item.className = 'p-2 border-b border-gray-200 last:border-b-0';
@@ -400,10 +451,6 @@
             notificationCount.classList.add('scale-100');
         }
 
-        /**
-         * Populates and shows the client profile modal.
-         * @param {object} data - The client data to display.
-         */
         function showProfileModal(data) {
             let profileHtml = `
                 <p><strong>Name:</strong> ${data.name}</p>
@@ -428,41 +475,38 @@
             profileModal.classList.remove('hidden');
         }
 
-        // --- New Logic: Automated status updates ---
         function checkAndMoveClients() {
+            if (!currentUser) return;
+
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-
-            let changed = false;
-
-            allClients.forEach(client => {
+            
+            allClients.forEach(async (client) => {
+                let newStatus = client.status;
                 let moved = false;
-                // Check for expired status on trial clients
+
                 if (client.status === 'Trial' && isExpired(client.endDate)) {
-                    client.status = 'Expired';
+                    newStatus = 'Expired';
                     addNotification(`${client.name}'s trial has ended and was moved to Expired.`);
                     moved = true;
                 }
                 
-                // Check for expiring soon (for non-trial clients)
                 if (client.status === 'Active' && client.endDate && isExpiringSoon(client.endDate)) {
-                    client.status = 'Expiring Soon';
+                    newStatus = 'Expiring Soon';
                     addNotification(`${client.name}'s membership is expiring soon!`);
                     moved = true;
                 }
 
-                // Check for expired clients who have been expired for 7 days
                 if (client.status === 'Expired' && client.endDate) {
                     const sevenDaysAfterExpiry = new Date(client.endDate);
                     sevenDaysAfterExpiry.setDate(sevenDaysAfterExpiry.getDate() + 7);
                     if (today >= sevenDaysAfterExpiry) {
-                        client.status = 'Follow-Up';
+                        newStatus = 'Follow-Up';
                         addNotification(`${client.name} has been expired for 7 days and was moved to Follow-Up.`);
                         moved = true;
                     }
                 }
                 
-                // Check for clients in follow-up for 2 weeks
                 if (client.status === 'Follow-Up' && client.history) {
                     const lastFollowUpEntry = client.history.findLast(h => h.action.includes('Follow-Up'));
                     if (lastFollowUpEntry) {
@@ -470,7 +514,7 @@
                         const twoWeeksFromLastFollowUp = new Date(lastFollowUpDate);
                         twoWeeksFromLastFollowUp.setDate(lastFollowUpDate.getDate() + 14);
                         if (today >= twoWeeksFromLastFollowUp) {
-                            client.status = 'Not Interested';
+                            newStatus = 'Not Interested';
                             addNotification(`${client.name} has been in Follow-Up for 2 weeks and was moved to Not Interested.`);
                             moved = true;
                         }
@@ -479,25 +523,18 @@
 
                 if (moved) {
                     const historyEntry = {
-                        action: `Status automatically updated to ${client.status}`,
+                        action: `Status automatically updated to ${newStatus}`,
                         timestamp: new Date().toLocaleString()
                     };
-                    client.history.push(historyEntry);
-                    changed = true;
+                    const updatedData = { ...client, status: newStatus, history: [...client.history, historyEntry] };
+                    await setDoc(doc(clientsColRef, client.id), updatedData);
                 }
             });
-            
-            if (changed) {
-                saveClientsToLocalStorage(); // Save changes
-                renderAllClients();
-            }
         }
 
         // Run the check every 10 seconds
         setInterval(checkAndMoveClients, 10000);
 
-
-        // --- Drag and Drop Functions ---
         function allowDrop(event) {
             event.preventDefault();
         }
@@ -512,7 +549,7 @@
         function drop(event) {
             event.preventDefault();
             const newColumn = event.target.closest('.column');
-            if (!newColumn) return;
+            if (!newColumn || !currentUser) return;
 
             const cardId = event.dataTransfer.getData("cardId");
             const card = document.getElementById(cardId);
@@ -537,11 +574,10 @@
             }
         }
 
-
-        // --- Event Listeners ---
-
-        clientForm.addEventListener('submit', function(e) {
+        clientForm.addEventListener('submit', async function(e) {
             e.preventDefault();
+            if (!currentUser) { showMessageBox('Please log in first.'); return; }
+
             const name = document.getElementById('name').value;
             const phone = document.getElementById('phone').value;
             const status = document.getElementById('status').value;
@@ -575,16 +611,16 @@
                  return;
             }
 
-            const data = { name, phone, email, status, startDate, endDate, note, id: currentEditingCard?.id };
+            const data = { name, phone, email, status, startDate, endDate, note };
             
             if (currentEditingCard) {
-                updateCard(currentEditingCard, data);
+                await updateClient(currentEditingCard.id, data);
                 addNotification(`${name} updated to ${data.status}`);
                 currentEditingCard = null;
                 submitButton.textContent = 'Add Client';
                 cancelButton.classList.add('hidden');
             } else {
-                createCard(data);
+                await createClient(data);
                 addNotification(`${name} added to ${data.status}`);
             }
 
@@ -598,13 +634,7 @@
 
             if (e.target.closest('.delete-btn')) {
                 const clientData = allClients.find(c => c.id === card.id);
-                
-                const clientIndex = allClients.findIndex(c => c.id === clientData.id);
-                if (clientIndex > -1) {
-                    allClients.splice(clientIndex, 1);
-                }
-                saveClientsToLocalStorage(); // Save changes
-                card.remove();
+                deleteClient(clientData.id);
                 addNotification(`${clientData.name} was deleted.`);
                 if (currentEditingCard === card) {
                     clientForm.reset();
@@ -658,16 +688,10 @@
             profileModal.classList.add('hidden');
         });
 
-        deleteProfileBtn.addEventListener('click', () => {
+        deleteProfileBtn.addEventListener('click', async () => {
             if (currentViewingCard) {
                 const clientData = allClients.find(c => c.id === currentViewingCard.id);
-                
-                const clientIndex = allClients.findIndex(c => c.id === clientData.id);
-                if (clientIndex > -1) {
-                    allClients.splice(clientIndex, 1);
-                }
-                saveClientsToLocalStorage(); // Save changes
-                currentViewingCard.remove();
+                await deleteClient(clientData.id);
                 addNotification(`${clientData.name} was deleted.`);
                 if (currentEditingCard === currentViewingCard) {
                     clientForm.reset();
@@ -702,10 +726,7 @@
             });
         });
 
-        window.addEventListener('DOMContentLoaded', () => {
-            loadClientsFromLocalStorage(); // Load data on startup
-            handleStatusChange();
-        });
+        window.addEventListener('DOMContentLoaded', handleStatusChange);
         
         // PWA service worker registration
         if ('serviceWorker' in navigator) {
