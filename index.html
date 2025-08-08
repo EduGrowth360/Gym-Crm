@@ -282,6 +282,7 @@
                     checkAndMoveClients(); // Run auto-logic after loading data
                     renderAllClients();
                 });
+                handleStatusChange(); // Fix: Call this after UI is visible
             } else {
                 currentUser = null;
                 authScreen.classList.remove('hidden');
