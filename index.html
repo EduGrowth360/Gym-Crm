@@ -236,7 +236,7 @@
         }
         
         /**
-         * Checks if a membership is expiring soon (exactly 2 days left).
+         * Checks if a membership is expiring soon (2 days or less from today).
          * @param {string} endDate - The end date in YYYY-MM-DD format.
          * @returns {boolean} - True if expiring soon, otherwise false.
          */
@@ -248,7 +248,7 @@
             end.setHours(0, 0, 0, 0);
             const twoDaysFromNow = new Date(today);
             twoDaysFromNow.setDate(today.getDate() + 2);
-            return end.getTime() === twoDaysFromNow.getTime();
+            return end <= twoDaysFromNow && end >= today;
         }
         
         /**
