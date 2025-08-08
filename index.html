@@ -49,13 +49,13 @@
     <!-- Login/Signup UI -->
     <div id="authScreen" class="flex items-center justify-center min-h-screen">
         <div class="bg-white p-8 rounded-lg shadow-md max-w-sm w-full">
-            <h2 id="authTitle" class="text-2xl font-bold text-blue-600 mb-6 text-center">Sign Up</h2>
+            <h2 id="authTitle" class="text-2xl font-bold text-blue-600 mb-6 text-center">Log In</h2>
             <form id="authForm" class="space-y-4">
-                <input type="email" id="authEmail" placeholder="Email" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                <input type="text" id="authUsername" placeholder="Username" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                 <input type="password" id="authPassword" placeholder="Password" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                <button type="submit" id="authSubmitBtn" class="w-full p-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors">Sign Up</button>
+                <button type="submit" id="authSubmitBtn" class="w-full p-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors">Log In</button>
             </form>
-            <button id="authToggleBtn" class="w-full mt-4 text-sm text-blue-600 hover:text-blue-800">Already have an account? Log In</button>
+            <p class="text-center text-gray-500 mt-4">For demo purposes, use 'admin' for both username and password.</p>
         </div>
     </div>
     
@@ -165,77 +165,15 @@
         </main>
     </div>
 
-    <script type="module">
-        // Firebase SDK Imports (using modular syntax for better performance)
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, deleteDoc, query, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-        // Your Firebase project configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyAReQuF0j0z1qwCn0pCMbTfQXZ3bBPpSSw",
-            authDomain: "gym-crm-73500.firebaseapp.com",
-            projectId: "gym-crm-73500",
-            storageBucket: "gym-crm-73500.firebasestorage.app",
-            messagingSenderId: "128869821727",
-            appId: "1:128869821727:web:32a0f23a610a21ef71142a",
-            measurementId: "G-4MREPDXE60"
-        };
-        
-        // Initialize Firebase services
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        
-        // DOM elements for Auth UI
+    <script>
+        // DOM elements
         const authScreen = document.getElementById('authScreen');
-        const authTitle = document.getElementById('authTitle');
         const authForm = document.getElementById('authForm');
-        const authEmail = document.getElementById('authEmail');
+        const authUsername = document.getElementById('authUsername');
         const authPassword = document.getElementById('authPassword');
-        const authSubmitBtn = document.getElementById('authSubmitBtn');
-        const authToggleBtn = document.getElementById('authToggleBtn');
         const mainApp = document.getElementById('mainApp');
         const logoutBtn = document.getElementById('logoutBtn');
-        let isLoginMode = false;
-        let currentUser = null;
 
-        // --- Auth UI Logic ---
-        authToggleBtn.addEventListener('click', () => {
-            isLoginMode = !isLoginMode;
-            if (isLoginMode) {
-                authTitle.textContent = 'Log In';
-                authSubmitBtn.textContent = 'Log In';
-                authToggleBtn.textContent = 'Need an account? Sign Up';
-            } else {
-                authTitle.textContent = 'Sign Up';
-                authSubmitBtn.textContent = 'Sign Up';
-                authToggleBtn.textContent = 'Already have an account? Log In';
-            }
-        });
-
-        authForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = authEmail.value;
-            const password = authPassword.value;
-
-            try {
-                if (isLoginMode) {
-                    await signInWithEmailAndPassword(auth, email, password);
-                } else {
-                    await createUserWithEmailAndPassword(auth, email, password);
-                }
-            } catch (error) {
-                showMessageBox(`Authentication error: ${error.message}`);
-            }
-        });
-
-        logoutBtn.addEventListener('click', async () => {
-            await signOut(auth);
-            // After logout, UI will be reset by onAuthStateChanged listener
-        });
-
-        // --- Core App Logic (Now Firebase-connected) ---
         const clientForm = document.getElementById('clientForm');
         const submitButton = document.getElementById('submitButton');
         const cancelButton = document.getElementById('cancelButton');
@@ -258,41 +196,152 @@
         let currentViewingCard = null;
         let allClients = [];
 
-        // Firestore collection reference for the current user's clients
-        let clientsColRef;
-        let unsubscribeFromClients = () => {};
-
-        // Listen for authentication state changes
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUser = user;
+        // --- Auth UI Logic ---
+        function checkLoginStatus() {
+            const isLoggedIn = localStorage.getItem('isLoggedIn');
+            if (isLoggedIn === 'true') {
                 authScreen.classList.add('hidden');
                 mainApp.classList.remove('hidden');
-                
-                // Initialize Firestore collection for the authenticated user
-                clientsColRef = collection(db, `users/${currentUser.uid}/clients`);
-                
-                // Set up a real-time listener for the user's client data
-                unsubscribeFromClients = onSnapshot(clientsColRef, (snapshot) => {
-                    const clientsFromDb = [];
-                    snapshot.forEach(doc => {
-                        clientsFromDb.push({ id: doc.id, ...doc.data() });
-                    });
-                    allClients = clientsFromDb;
-                    checkAndMoveClients(); // Run auto-logic after loading data
-                    renderAllClients();
-                });
-                handleStatusChange(); // Fix: Call this after UI is visible
+                loadClientsFromLocalStorage();
             } else {
-                currentUser = null;
                 authScreen.classList.remove('hidden');
                 mainApp.classList.add('hidden');
-                // Clean up listener when user logs out
-                unsubscribeFromClients();
-                allClients = [];
-                renderAllClients();
+            }
+        }
+
+        authForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const username = authUsername.value;
+            const password = authPassword.value;
+
+            // Simple mock authentication for demo
+            if (username === 'admin' && password === 'admin') {
+                localStorage.setItem('isLoggedIn', 'true');
+                checkLoginStatus();
+                showMessageBox('Logged in successfully!');
+            } else {
+                showMessageBox('Incorrect username or password.');
             }
         });
+
+        logoutBtn.addEventListener('click', function() {
+            localStorage.removeItem('isLoggedIn');
+            allClients = [];
+            renderAllClients();
+            checkLoginStatus();
+        });
+
+        /**
+         * Saves the current clients array to localStorage.
+         */
+        function saveClientsToLocalStorage() {
+            localStorage.setItem('gym_clients', JSON.stringify(allClients));
+        }
+
+        /**
+         * Loads clients data from localStorage and populates the in-memory array.
+         */
+        function loadClientsFromLocalStorage() {
+            const storedClients = localStorage.getItem('gym_clients');
+            if (storedClients) {
+                allClients = JSON.parse(storedClients);
+                renderAllClients();
+            }
+        }
+
+        /**
+         * Shows or hides a custom message box with a given text.
+         */
+        function showMessageBox(text) {
+            messageText.textContent = text;
+            messageBox.classList.remove('hidden');
+        }
+
+        /**
+         * Toggles the visibility of date input fields based on the selected status.
+         */
+        function handleStatusChange() {
+            const status = document.getElementById('status').value;
+            const start = document.getElementById('startDateGroup');
+            const end = document.getElementById('endDateGroup');
+            if (status === 'Follow-Up') {
+                start.style.display = 'block';
+                end.style.display = 'none';
+            } else if (status === 'Not Interested') {
+                start.style.display = 'none';
+                end.style.display = 'none';
+            } else {
+                start.style.display = 'block';
+                end.style.display = 'block';
+            }
+        }
+
+        /**
+         * Checks if a membership has expired based on the end date.
+         */
+        function isExpired(endDate) {
+            if (!endDate) return false;
+            const today = new Date();
+            const end = new Date(endDate);
+            today.setHours(0, 0, 0, 0);
+            end.setHours(0, 0, 0, 0);
+            return end < today;
+        }
+        
+        /**
+         * Checks if a membership is expiring soon (2 days or less from today).
+         */
+        function isExpiringSoon(endDate) {
+            if (!endDate) return false;
+            const today = new Date();
+            const end = new Date(endDate);
+            today.setHours(0, 0, 0, 0);
+            end.setHours(0, 0, 0, 0);
+            const twoDaysFromNow = new Date(today);
+            twoDaysFromNow.setDate(today.getDate() + 2);
+            return end <= twoDaysFromNow && end >= today;
+        }
+        
+        /**
+         * Determines the correct status based on a client's end date.
+         */
+        function getCorrectStatus(data) {
+            if (data.status === 'Follow-Up' || data.status === 'Not Interested') {
+                return data.status;
+            }
+            if (data.status === 'Trial') {
+                if (isExpired(data.endDate)) {
+                    return 'Expired';
+                }
+                return 'Trial';
+            }
+            if (isExpired(data.endDate)) {
+                return 'Expired';
+            }
+            if (data.status !== 'Trial' && isExpiringSoon(data.endDate)) {
+                return 'Expiring Soon';
+            }
+            if (data.endDate) {
+                 return 'Active';
+            }
+            return 'Follow-Up';
+        }
+        
+        /**
+         * Checks if a phone number already exists in the database.
+         */
+        function isPhoneNumberDuplicate(phone, currentCardId) {
+            let isDuplicate = false;
+            allClients.forEach(client => {
+                if (client.id === currentCardId) {
+                    return;
+                }
+                if (client.phone === phone) {
+                    isDuplicate = true;
+                }
+            });
+            return isDuplicate;
+        }
 
         /**
          * Renders all client cards from the in-memory array to the board.
@@ -324,28 +373,28 @@
         }
         
         /**
-         * Creates a new client in the Firestore database.
-         * @param {object} data - The client data object.
+         * Creates a new client card and appends it to the correct column.
          */
-        async function createClient(data) {
+        function createCard(data) {
             const initialStatus = data.status;
             data.status = getCorrectStatus(data);
             
+            data.id = `client-${Date.now()}`;
             data.history = [{
                 action: `Client added with status: ${initialStatus}`,
                 timestamp: new Date().toLocaleString()
             }];
             
-            await setDoc(doc(clientsColRef), data);
+            allClients.push(data);
+            saveClientsToLocalStorage();
+            renderAllClients();
         }
 
         /**
-         * Updates an existing client in the Firestore database.
-         * @param {string} id - The ID of the client document.
-         * @param {object} data - The new client data.
+         * Updates an existing client card's content and its associated data.
          */
-        async function updateClient(id, data) {
-            const oldData = allClients.find(c => c.id === id);
+        function updateCard(card, data) {
+            const oldData = allClients.find(c => c.id === card.id);
             const oldStatus = oldData.status;
             
             data.status = getCorrectStatus(data);
@@ -356,91 +405,17 @@
             };
             data.history = oldData.history ? [...oldData.history, historyEntry] : [historyEntry];
 
-            await setDoc(doc(clientsColRef, id), data);
-        }
-        
-        async function deleteClient(id) {
-            await deleteDoc(doc(clientsColRef, id));
+            const clientIndex = allClients.findIndex(client => client.id === card.id);
+            if (clientIndex > -1) {
+                allClients[clientIndex] = { ...data, id: card.id };
+            }
+            saveClientsToLocalStorage();
+            renderAllClients();
         }
 
-        // The rest of the functions (showMessageBox, handleStatusChange, etc.) are the same.
-        // They now work with the allClients array which is synced from Firestore.
-        function showMessageBox(text) {
-            messageText.textContent = text;
-            messageBox.classList.remove('hidden');
-        }
-
-        function handleStatusChange() {
-            const status = document.getElementById('status').value;
-            const start = document.getElementById('startDateGroup');
-            const end = document.getElementById('endDateGroup');
-            if (status === 'Follow-Up') {
-                start.style.display = 'block';
-                end.style.display = 'none';
-            } else if (status === 'Not Interested') {
-                start.style.display = 'none';
-                end.style.display = 'none';
-            } else {
-                start.style.display = 'block';
-                end.style.display = 'block';
-            }
-        }
-
-        function isExpired(endDate) {
-            if (!endDate) return false;
-            const today = new Date();
-            const end = new Date(endDate);
-            today.setHours(0, 0, 0, 0);
-            end.setHours(0, 0, 0, 0);
-            return end < today;
-        }
-
-        function isExpiringSoon(endDate) {
-            if (!endDate) return false;
-            const today = new Date();
-            const end = new Date(endDate);
-            today.setHours(0, 0, 0, 0);
-            end.setHours(0, 0, 0, 0);
-            const twoDaysFromNow = new Date(today);
-            twoDaysFromNow.setDate(today.getDate() + 2);
-            return end <= twoDaysFromNow && end >= today;
-        }
-
-        function getCorrectStatus(data) {
-            if (data.status === 'Follow-Up' || data.status === 'Not Interested') {
-                return data.status;
-            }
-            if (data.status === 'Trial') {
-                if (isExpired(data.endDate)) {
-                    return 'Expired';
-                }
-                return 'Trial';
-            }
-            if (isExpired(data.endDate)) {
-                return 'Expired';
-            }
-            if (data.status !== 'Trial' && isExpiringSoon(data.endDate)) {
-                return 'Expiring Soon';
-            }
-            if (data.endDate) {
-                 return 'Active';
-            }
-            return 'Follow-Up';
-        }
-
-        function isPhoneNumberDuplicate(phone, currentCardId) {
-            let isDuplicate = false;
-            allClients.forEach(client => {
-                if (client.id === currentCardId) {
-                    return;
-                }
-                if (client.phone === phone) {
-                    isDuplicate = true;
-                }
-            });
-            return isDuplicate;
-        }
-        
+        /**
+         * Adds a new notification to the notification list and updates the count.
+         */
         function addNotification(text) {
             const item = document.createElement('li');
             item.className = 'p-2 border-b border-gray-200 last:border-b-0';
@@ -452,6 +427,9 @@
             notificationCount.classList.add('scale-100');
         }
 
+        /**
+         * Populates and shows the client profile modal.
+         */
         function showProfileModal(data) {
             let profileHtml = `
                 <p><strong>Name:</strong> ${data.name}</p>
@@ -476,61 +454,42 @@
             profileModal.classList.remove('hidden');
         }
 
+        /**
+         * Check and move clients based on their status and dates.
+         */
         function checkAndMoveClients() {
-            if (!currentUser) return;
+            let changed = false;
 
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            
-            allClients.forEach(async (client) => {
-                let newStatus = client.status;
-                let moved = false;
-
-                if (client.status === 'Trial' && isExpired(client.endDate)) {
-                    newStatus = 'Expired';
-                    addNotification(`${client.name}'s trial has ended and was moved to Expired.`);
-                    moved = true;
-                }
+            allClients.forEach(client => {
+                const oldStatus = client.status;
+                client.status = getCorrectStatus(client);
                 
-                if (client.status === 'Active' && client.endDate && isExpiringSoon(client.endDate)) {
-                    newStatus = 'Expiring Soon';
-                    addNotification(`${client.name}'s membership is expiring soon!`);
-                    moved = true;
-                }
-
-                if (client.status === 'Expired' && client.endDate) {
-                    const sevenDaysAfterExpiry = new Date(client.endDate);
-                    sevenDaysAfterExpiry.setDate(sevenDaysAfterExpiry.getDate() + 7);
-                    if (today >= sevenDaysAfterExpiry) {
-                        newStatus = 'Follow-Up';
-                        addNotification(`${client.name} has been expired for 7 days and was moved to Follow-Up.`);
-                        moved = true;
-                    }
-                }
-                
-                if (client.status === 'Follow-Up' && client.history) {
-                    const lastFollowUpEntry = client.history.findLast(h => h.action.includes('Follow-Up'));
-                    if (lastFollowUpEntry) {
-                        const lastFollowUpDate = new Date(lastFollowUpEntry.timestamp);
-                        const twoWeeksFromLastFollowUp = new Date(lastFollowUpDate);
-                        twoWeeksFromLastFollowUp.setDate(lastFollowUpDate.getDate() + 14);
-                        if (today >= twoWeeksFromLastFollowUp) {
-                            newStatus = 'Not Interested';
-                            addNotification(`${client.name} has been in Follow-Up for 2 weeks and was moved to Not Interested.`);
-                            moved = true;
-                        }
-                    }
-                }
-
-                if (moved) {
+                if (oldStatus !== client.status) {
                     const historyEntry = {
-                        action: `Status automatically updated to ${newStatus}`,
+                        action: `Status automatically updated to ${client.status}`,
                         timestamp: new Date().toLocaleString()
                     };
-                    const updatedData = { ...client, status: newStatus, history: [...client.history, historyEntry] };
-                    await setDoc(doc(clientsColRef, client.id), updatedData);
+                    client.history.push(historyEntry);
+                    addNotification(`${client.name} moved to ${client.status}`);
+                    changed = true;
+                }
+
+                if (oldStatus === 'Expiring Soon' && isExpired(client.endDate)) {
+                    client.status = 'Expired';
+                    const historyEntry = {
+                        action: `Status automatically updated from Expiring Soon to Expired`,
+                        timestamp: new Date().toLocaleString()
+                    };
+                    client.history.push(historyEntry);
+                    addNotification(`${client.name}'s membership has expired and was moved to Expired.`);
+                    changed = true;
                 }
             });
+
+            if (changed) {
+                saveClientsToLocalStorage();
+                renderAllClients();
+            }
         }
 
         // Run the check every 10 seconds
@@ -550,7 +509,7 @@
         function drop(event) {
             event.preventDefault();
             const newColumn = event.target.closest('.column');
-            if (!newColumn || !currentUser) return;
+            if (!newColumn) return;
 
             const cardId = event.dataTransfer.getData("cardId");
             const card = document.getElementById(cardId);
@@ -575,10 +534,8 @@
             }
         }
 
-        clientForm.addEventListener('submit', async function(e) {
+        clientForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            if (!currentUser) { showMessageBox('Please log in first.'); return; }
-
             const name = document.getElementById('name').value;
             const phone = document.getElementById('phone').value;
             const status = document.getElementById('status').value;
@@ -615,13 +572,13 @@
             const data = { name, phone, email, status, startDate, endDate, note };
             
             if (currentEditingCard) {
-                await updateClient(currentEditingCard.id, data);
+                updateCard(currentEditingCard, data);
                 addNotification(`${name} updated to ${data.status}`);
                 currentEditingCard = null;
                 submitButton.textContent = 'Add Client';
                 cancelButton.classList.add('hidden');
             } else {
-                await createClient(data);
+                createCard(data);
                 addNotification(`${name} added to ${data.status}`);
             }
 
@@ -635,7 +592,13 @@
 
             if (e.target.closest('.delete-btn')) {
                 const clientData = allClients.find(c => c.id === card.id);
-                deleteClient(clientData.id);
+                
+                const clientIndex = allClients.findIndex(c => c.id === clientData.id);
+                if (clientIndex > -1) {
+                    allClients.splice(clientIndex, 1);
+                }
+                saveClientsToLocalStorage();
+                card.remove();
                 addNotification(`${clientData.name} was deleted.`);
                 if (currentEditingCard === card) {
                     clientForm.reset();
@@ -654,7 +617,7 @@
         board.addEventListener('dragstart', function(e) {
             const card = e.target.closest('.card');
             if (card) {
-                e.dataTransfer.setData('cardId', card.id);
+                event.dataTransfer.setData('cardId', card.id);
             }
         });
 
@@ -692,7 +655,13 @@
         deleteProfileBtn.addEventListener('click', async () => {
             if (currentViewingCard) {
                 const clientData = allClients.find(c => c.id === currentViewingCard.id);
-                await deleteClient(clientData.id);
+                
+                const clientIndex = allClients.findIndex(c => c.id === clientData.id);
+                if (clientIndex > -1) {
+                    allClients.splice(clientIndex, 1);
+                }
+                saveClientsToLocalStorage();
+                currentViewingCard.remove();
                 addNotification(`${clientData.name} was deleted.`);
                 if (currentEditingCard === currentViewingCard) {
                     clientForm.reset();
@@ -727,7 +696,13 @@
             });
         });
 
-        window.addEventListener('DOMContentLoaded', handleStatusChange);
+        window.addEventListener('DOMContentLoaded', () => {
+            checkLoginStatus();
+            // Call handleStatusChange after checking login status
+            if (localStorage.getItem('isLoggedIn') === 'true') {
+                 handleStatusChange();
+            }
+        });
         
         // PWA service worker registration
         if ('serviceWorker' in navigator) {
