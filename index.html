@@ -387,7 +387,7 @@
       renderAllClients();
     }
 
-    // Notifications
+    // Notifications (manual only)
     function addNotification(text) {
       const item = document.createElement('li');
       item.className = 'p-2 border-b border-gray-200 last:border-b-0';
@@ -405,7 +405,7 @@
       }
     });
 
-    // Auto engine (Active→Soon/Expired, Expired 7d→Follow-Up)
+    // Auto engine (Active→Soon/Expired, Expired 7d→Follow-Up). No notifications here.
     function checkAndMoveClients() {
       let changed = false;
 
@@ -417,24 +417,20 @@
           client.statusSince = Date.now();
           client.history = client.history || [];
           client.history.push({
-            action: `Status automatically updated to ${client.status}`,
+            action: `Auto: status → ${client.status}`,
             timestamp: new Date().toLocaleString()
           });
-          addNotification(`${client.name} moved to ${client.status}`);
           changed = true;
         }
 
         // 2) Aging: Expired for 7+ days -> Follow-Up
         if (client.status === 'Expired' && daysSince(client.statusSince) >= 7) {
           client.status = 'Follow-Up';
-          // Optional: clear endDate to avoid confusion
-          // client.endDate = '';
           client.statusSince = Date.now();
           client.history.push({
-            action: `Aging rule: Expired for 7 days → Follow-Up`,
+            action: `Auto aging: Expired 7d → Follow-Up`,
             timestamp: new Date().toLocaleString()
           });
-          addNotification(`${client.name} moved to Follow-Up (aging from Expired).`);
           changed = true;
         }
       });
@@ -462,7 +458,7 @@
       const data = allClients.find(c => c.id === cardId);
       const newStatus = newColumn.id;
 
-      // Quick path: drag directly to Not Interested = immediate move
+      // Quick path: drag directly to Not Interested = immediate move (dates not required)
       if (newStatus === 'Not Interested') {
         const dataCopy = { ...data, status: 'Not Interested' };
         updateCard(card, dataCopy);
@@ -470,7 +466,7 @@
         return;
       }
 
-      // Otherwise open form prefilled for edit
+      // Otherwise open form prefilled (Active/Trial/etc. need valid dates)
       document.getElementById('name').value = data.name;
       document.getElementById('phone').value = data.phone;
       document.getElementById('email').value = data.email;
@@ -644,7 +640,7 @@
       handleStatusChange();
       scheduleMidnightCheck();
       checkAndMoveClients();
-      // run frequently
+      // Run frequently
       setInterval(checkAndMoveClients, 60 * 1000); // every minute
       window.addEventListener('focus', checkAndMoveClients);
       document.addEventListener('visibilitychange', () => { if (!document.hidden) checkAndMoveClients(); });
@@ -733,7 +729,7 @@
         });
         saveClientsToLocalStorage();
         renderAllClients();
-        addNotification('Import finished');
+        // No notification here either (import should be quiet)
       };
       reader.readAsText(file);
     }
