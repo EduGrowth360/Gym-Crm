@@ -128,7 +128,7 @@
               <option value="Expired">Expired</option>
               <option value="Not Interested">Not Interested</option>
             </select>
-            <!-- Optional manual lock (now ignored by automation; kept for UI continuity) -->
+            <!-- Optional manual lock (ignored by automation; kept for UI continuity) -->
             <label class="mt-2 inline-flex items-center gap-2 text-sm text-gray-700">
               <input type="checkbox" id="lockStatus" class="rounded border-gray-300">
               Lock status (manual)
@@ -636,8 +636,9 @@
       handleStatusChange();
       scheduleMidnightCheck();
       checkAndMoveClients();
-      // run frequently
-      setInterval(checkAndMoveClients, 60 * 1000); // every minute
+
+      // Run automations every 5 seconds + on focus/visibility
+      setInterval(checkAndMoveClients, 5000);
       window.addEventListener('focus', checkAndMoveClients);
       document.addEventListener('visibilitychange', () => { if (!document.hidden) checkAndMoveClients(); });
     });
@@ -721,7 +722,6 @@
           if (!/^[0-9]{10}$/.test(data.phone)) return; // skip bad phones on import
           if (!isPhoneNumberDuplicate(data.phone)) {
             data.id = `client-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
-            // compute status fresh (then keep statusSince from file)
             const computed = getCorrectStatus(data);
             data.status = computed;
             data.history = [{ action: 'Imported via CSV', timestamp: new Date().toLocaleString() }];
