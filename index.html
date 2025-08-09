@@ -306,6 +306,15 @@
       today.setHours(0,0,0,0);
       return Math.floor((today - start) / (1000 * 60 * 60 * 24));
     }
+    // Days since a date string (YYYY-MM-DD)
+    function daysSinceDateStr(dateStr) {
+      if (!dateStr) return 0;
+      const d = parseLocalDate(dateStr);
+      const today = new Date();
+      d.setHours(0,0,0,0);
+      today.setHours(0,0,0,0);
+      return Math.floor((today - d) / (1000 * 60 * 60 * 24));
+    }
 
     // Status logic (automation applies to all; Trial stays put)
     function getCorrectStatus(data) {
@@ -428,17 +437,21 @@
         }
 
         // 2) Aging rules
-        // Expired for 7+ days -> Follow-Up
-        if (client.status === 'Expired' && daysSince(client.statusSince) >= 7) {
-          client.status = 'Follow-Up';
-          client.statusSince = Date.now();
-          client.history.push({
-            action: `Aging rule: Expired for 7 days → Follow-Up`,
-            timestamp: new Date().toLocaleString()
-          });
-          addNotification(`${client.name} moved to Follow-Up (aging from Expired).`);
-          changed = true;
+        // Expired for 7+ days -> Follow-Up (use endDate age if present)
+        if (client.status === 'Expired') {
+          const daysExpired = client.endDate ? daysSinceDateStr(client.endDate) : daysSince(client.statusSince);
+          if (daysExpired >= 7) {
+            client.status = 'Follow-Up';
+            client.statusSince = Date.now();
+            client.history.push({
+              action: `Aging rule: Expired for 7 days → Follow-Up`,
+              timestamp: new Date().toLocaleString()
+            });
+            addNotification(`${client.name} moved to Follow-Up (aging from Expired).`);
+            changed = true;
+          }
         }
+
         // Follow-Up for 7+ days -> Not Interested
         if (client.status === 'Follow-Up' && daysSince(client.statusSince) >= 7) {
           client.status = 'Not Interested';
