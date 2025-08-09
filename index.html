@@ -129,6 +129,11 @@
               <option value="Expired">Expired</option>
               <option value="Not Interested">Not Interested</option>
             </select>
+            <!-- Manual lock -->
+            <label class="mt-2 inline-flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" id="lockStatus" class="rounded border-gray-300">
+              Lock status (manual)
+            </label>
           </div>
           <div id="startDateGroup" class="form-group">
             <label class="block text-gray-700 font-medium mb-1">Start Date</label>
@@ -296,18 +301,26 @@
       return end <= soon && end >= today;
     }
 
-    // Status logic (Trial sticky)
+    // Status logic (respects manual lock)
     function getCorrectStatus(data) {
-      // Trials never move columns; we only style them if overdue
+      // Manual override: never auto-move
+      if (data.manual === true) return data.status;
+
+      // Trials never auto-move; only style them if overdue
       if (data.status === 'Trial') return 'Trial';
+
       // Non-trial: expired forces Expired
       if (data.endDate && isExpired(data.endDate)) return 'Expired';
+
       // Non-trial: expiring soon
       if (data.endDate && isExpiringSoon(data.endDate)) return 'Expiring Soon';
+
       // Follow-Up / Not Interested stay
       if (data.status === 'Follow-Up' || data.status === 'Not Interested') return data.status;
+
       // Otherwise with endDate -> Active
       if (data.endDate) return 'Active';
+
       // Fallback
       return 'Follow-Up';
     }
@@ -390,11 +403,15 @@
       }
     });
 
-    // Auto reclassify at midnight + on load
+    // Auto reclassify at midnight + on load (skips manual)
     function checkAndMoveClients() {
       let changed = false;
       allClients.forEach(client => {
         const oldStatus = client.status;
+
+        // Skip auto rules if manual lock is on
+        if (client.manual === true) return;
+
         client.status = getCorrectStatus(client);
         if (oldStatus !== client.status) {
           client.history = client.history || [];
@@ -428,6 +445,10 @@
       document.getElementById('phone').value = data.phone;
       document.getElementById('email').value = data.email;
       document.getElementById('status').value = newStatus;
+
+      // default to manual lock for a drag action so your move sticks
+      document.getElementById('lockStatus').checked = true;
+
       document.getElementById('startDate').value = data.startDate || '';
       document.getElementById('endDate').value = data.endDate || '';
       document.getElementById('note').value = data.note || '';
@@ -476,6 +497,7 @@
         <p><strong>Start Date:</strong> ${data.startDate || 'N/A'}</p>
         <p><strong>End Date:</strong> ${data.endDate || 'N/A'}</p>
         <p><strong>Note:</strong> ${data.note || 'N/A'}</p>
+        <p><strong>Locked:</strong> ${data.manual ? 'Yes' : 'No'}</p>
       `;
       if (data.history && data.history.length) {
         let hist = '<div class="history-list mt-4 border-t pt-4"><h3 class="font-bold text-gray-700">Action History</h3>';
@@ -499,6 +521,7 @@
       document.getElementById('startDate').value = data.startDate || '';
       document.getElementById('endDate').value = data.endDate || '';
       document.getElementById('note').value = data.note || '';
+      document.getElementById('lockStatus').checked = (data.manual === true); // reflect manual lock
       submitButton.textContent = 'Update Client';
       cancelButton.classList.remove('hidden');
       handleStatusChange();
@@ -543,6 +566,7 @@
       const startDate = document.getElementById('startDate').value;
       const endDate = document.getElementById('endDate').value;
       const note = document.getElementById('note').value.trim();
+      const manual = document.getElementById('lockStatus').checked;
 
       if (!/^[0-9]{10}$/.test(phone)) { showMessageBox('Please enter a valid 10-digit mobile number.'); return; }
       if (!startDate && status !== 'Not Interested') { showMessageBox('A start date is required.'); return; }
@@ -554,9 +578,15 @@
       const currentId = currentEditingCard ? currentEditingCard.id : null;
       if (isPhoneNumberDuplicate(phone, currentId)) { showMessageBox('This phone number already exists.'); return; }
 
-      const data = { name, phone, email, status, startDate, endDate, note };
+      let data = { name, phone, email, status, startDate, endDate, note, manual };
 
       if (currentEditingCard) {
+        const oldData = allClients.find(c => c.id === currentEditingCard.id) || {};
+        // If status changed and user didn't explicitly lock, we lock it so the change sticks
+        if (oldData.status !== status && manual === false) {
+          data.manual = true;
+          document.getElementById('lockStatus').checked = true;
+        }
         updateCard(currentEditingCard, data);
         addNotification(`${name} updated to ${getCorrectStatus(data)}`);
         currentEditingCard = null;
@@ -626,7 +656,6 @@
         const a = document.createElement('a');
         a.href = url;
         a.download = 'gym_clients.csv';
-        // append for better compatibility (some browsers ignore detached clicks)
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -666,7 +695,8 @@
             status: cols[idx('status')] || 'Follow-Up',
             startDate: cols[idx('startDate')] || '',
             endDate: cols[idx('endDate')] || '',
-            note: cols[idx('note')] || ''
+            note: cols[idx('note')] || '',
+            manual: false
           };
           if (!isPhoneNumberDuplicate(data.phone)) {
             data.id = `client-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
