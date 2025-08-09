@@ -22,6 +22,7 @@
     .history-list { max-height: 200px; overflow-y: auto; border-top: 1px solid #e5e7eb; padding-top: 1rem; margin-top: 1rem; }
     .history-item { background: #f3f4f6; padding: .5rem; border-radius: .5rem; margin-bottom: .5rem; }
     .overflow-text-container { overflow-x: auto; white-space: nowrap; }
+
     /* Overdue Trial: full red card with white text */
     .overdue-trial {
       background-color: #ef4444 !important; /* red-500 */
@@ -96,9 +97,10 @@
             <button id="closeProfileModal" class="text-gray-500 hover:text-gray-700 text-2xl"><i class="fas fa-times"></i></button>
           </div>
           <div id="profileContent" class="space-y-2"></div>
-          <div class="flex space-x-2 mt-4 pt-4 border-t">
-            <button id="editProfileBtn" class="w-full p-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700">Edit</button>
-            <button id="deleteProfileBtn" class="w-full p-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700">Delete</button>
+          <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t">
+            <button id="editProfileBtn" class="flex-1 p-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700">Edit</button>
+            <button id="moveToNIButton" class="flex-1 p-3 bg-gray-700 text-white font-bold rounded-lg hover:bg-gray-800">Move to Not Interested</button>
+            <button id="deleteProfileBtn" class="flex-1 p-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700">Delete</button>
           </div>
         </div>
       </div>
@@ -128,7 +130,7 @@
               <option value="Expired">Expired</option>
               <option value="Not Interested">Not Interested</option>
             </select>
-            <!-- Optional manual lock (ignored by automation; kept for UI continuity) -->
+            <!-- Optional manual lock kept for UI continuity (automation ignores it now) -->
             <label class="mt-2 inline-flex items-center gap-2 text-sm text-gray-700">
               <input type="checkbox" id="lockStatus" class="rounded border-gray-300">
               Lock status (manual)
@@ -306,30 +308,25 @@
       today.setHours(0,0,0,0);
       return Math.floor((today - start) / (1000 * 60 * 60 * 24));
     }
-    // Days since a date string (YYYY-MM-DD)
-    function daysSinceDateStr(dateStr) {
-      if (!dateStr) return 0;
-      const d = parseLocalDate(dateStr);
-      const today = new Date();
-      d.setHours(0,0,0,0);
-      today.setHours(0,0,0,0);
-      return Math.floor((today - d) / (1000 * 60 * 60 * 24));
-    }
 
-    // Status logic (automation applies to all; Trial stays put)
+    // Status logic
     function getCorrectStatus(data) {
-      // Trials never auto-move columns; only visual overdue highlight handled on render
+      // Trial never auto-moves; only visual red if overdue
       if (data.status === 'Trial') return 'Trial';
 
-      // If we have an end date, compute by date
+      // Manual/lead statuses override dates to prevent loops and allow instant decisions
+      if (data.status === 'Follow-Up' || data.status === 'Not Interested') {
+        return data.status;
+      }
+
+      // Date-based for everything else
       if (data.endDate) {
         if (isExpired(data.endDate)) return 'Expired';
         if (isExpiringSoon(data.endDate)) return 'Expiring Soon';
         return 'Active';
       }
 
-      // No end date cases
-      if (data.status === 'Not Interested') return 'Not Interested';
+      // No end date -> Follow-Up
       return 'Follow-Up';
     }
 
@@ -376,7 +373,7 @@
       const initialStatus = data.status;
       data.status = getCorrectStatus(data);
       data.id = `client-${Date.now()}`;
-      data.statusSince = Date.now(); // track when this status started
+      data.statusSince = Date.now(); // when this status started
       data.history = [{ action: `Client added with status: ${initialStatus}`, timestamp: new Date().toLocaleString() }];
       allClients.push(data);
       saveClientsToLocalStorage();
@@ -417,12 +414,12 @@
       }
     });
 
-    // Auto reclassify engine (runs for all cards)
+    // Auto engine (runs for all cards)
     function checkAndMoveClients() {
       let changed = false;
 
       allClients.forEach(client => {
-        // 1) Date-based rules (Active -> Expiring Soon, -> Expired)
+        // 1) Date-based rules (Active -> Expiring Soon, -> Expired). Follow-Up/Not Interested are immune by design in getCorrectStatus.
         const computed = getCorrectStatus(client);
         if (computed !== client.status) {
           client.status = computed;
@@ -437,21 +434,19 @@
         }
 
         // 2) Aging rules
-        // Expired for 7+ days -> Follow-Up (use endDate age if present)
-        if (client.status === 'Expired') {
-          const daysExpired = client.endDate ? daysSinceDateStr(client.endDate) : daysSince(client.statusSince);
-          if (daysExpired >= 7) {
-            client.status = 'Follow-Up';
-            client.statusSince = Date.now();
-            client.history.push({
-              action: `Aging rule: Expired for 7 days → Follow-Up`,
-              timestamp: new Date().toLocaleString()
-            });
-            addNotification(`${client.name} moved to Follow-Up (aging from Expired).`);
-            changed = true;
-          }
+        // Expired for 7+ days -> Follow-Up
+        if (client.status === 'Expired' && daysSince(client.statusSince) >= 7) {
+          client.status = 'Follow-Up';
+          // Optional: clear endDate so it doesn't confuse reception
+          // client.endDate = '';
+          client.statusSince = Date.now();
+          client.history.push({
+            action: `Aging rule: Expired for 7 days → Follow-Up`,
+            timestamp: new Date().toLocaleString()
+          });
+          addNotification(`${client.name} moved to Follow-Up (aging from Expired).`);
+          changed = true;
         }
-
         // Follow-Up for 7+ days -> Not Interested
         if (client.status === 'Follow-Up' && daysSince(client.statusSince) >= 7) {
           client.status = 'Not Interested';
@@ -488,7 +483,15 @@
       const data = allClients.find(c => c.id === cardId);
       const newStatus = newColumn.id;
 
-      // Prefill form for edit (drag triggers an edit)
+      // Quick path: drag directly to Not Interested = immediate move
+      if (newStatus === 'Not Interested') {
+        const dataCopy = { ...data, status: 'Not Interested' };
+        updateCard(card, dataCopy);
+        addNotification(`${data.name} moved to Not Interested (manual)`);
+        return;
+      }
+
+      // Otherwise open form prefilled for edit
       document.getElementById('name').value = data.name;
       document.getElementById('phone').value = data.phone;
       document.getElementById('email').value = data.email;
@@ -569,6 +572,16 @@
       cancelButton.classList.remove('hidden');
       handleStatusChange();
     });
+
+    document.getElementById('moveToNIButton').addEventListener('click', () => {
+      if (!currentViewingCard) return;
+      const client = allClients.find(c => c.id === currentViewingCard.id);
+      const updated = { ...client, status: 'Not Interested' };
+      updateCard(currentViewingCard, updated);
+      addNotification(`${client.name} moved to Not Interested (manual)`);
+      document.getElementById('profileModal').classList.add('hidden');
+    });
+
     document.getElementById('deleteProfileBtn').addEventListener('click', () => {
       if (!currentViewingCard) return;
       const clientData = allClients.find(c => c.id === currentViewingCard.id);
@@ -583,7 +596,7 @@
         submitButton.textContent = 'Add Client';
         cancelButton.classList.add('hidden');
       }
-      profileModal.classList.add('hidden');
+      document.getElementById('profileModal').classList.add('hidden');
     });
 
     // Search
@@ -601,20 +614,23 @@
     clientForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const name = document.getElementById('name').value.trim();
-      const phone = document.getElementById('phone').value.trim();
+      let phone = document.getElementById('phone').value.trim();
       const email = document.getElementById('email').value.trim();
       const status = document.getElementById('status').value;
       const startDate = document.getElementById('startDate').value;
       const endDate = document.getElementById('endDate').value;
       const note = document.getElementById('note').value.trim();
+
       // phone must be 10 digits
       if (!/^[0-9]{10}$/.test(phone)) { showMessageBox('Please enter a valid 10-digit mobile number.'); return; }
+
       // Follow-Up requires start only; Not Interested requires none; others require both
       if (status !== 'Not Interested' && !startDate) { showMessageBox('A start date is required.'); return; }
       if (status !== 'Follow-Up' && status !== 'Not Interested' && !endDate) { showMessageBox('An end date is required for this status.'); return; }
       if (status !== 'Follow-Up' && status !== 'Not Interested' && startDate && endDate && parseLocalDate(startDate) > parseLocalDate(endDate)) {
         showMessageBox('The end date cannot be before the start date.'); return;
       }
+
       const currentId = currentEditingCard ? currentEditingCard.id : null;
       if (isPhoneNumberDuplicate(phone, currentId)) { showMessageBox('This phone number already exists.'); return; }
 
@@ -649,9 +665,8 @@
       handleStatusChange();
       scheduleMidnightCheck();
       checkAndMoveClients();
-
-      // Run automations every 5 seconds + on focus/visibility
-      setInterval(checkAndMoveClients, 5000);
+      // run frequently
+      setInterval(checkAndMoveClients, 60 * 1000); // every minute
       window.addEventListener('focus', checkAndMoveClients);
       document.addEventListener('visibilitychange', () => { if (!document.hidden) checkAndMoveClients(); });
     });
@@ -663,7 +678,7 @@
       });
     }
 
-    // CSV export/import (Save As when available + fallbacks)
+    // CSV export/import (Save As + fallbacks)
     function toCsvValue(val = '') { return '"' + String(val).replace(/"/g, '""') + '"'; }
 
     async function exportCsv() {
@@ -684,9 +699,7 @@
           await writable.write(blob);
           await writable.close();
           return;
-        } catch (err) {
-          console.debug('showSaveFilePicker failed:', err);
-        }
+        } catch (err) { /* user cancelled or not supported — fallback */ }
       }
       try {
         const url = URL.createObjectURL(blob);
@@ -697,15 +710,13 @@
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        return;
-      } catch (err) {
-        console.debug('anchor download failed:', err);
+      } catch (_) {
+        try {
+          const url = URL.createObjectURL(blob);
+          window.open(url, '_blank', 'noopener');
+          setTimeout(() => URL.revokeObjectURL(url), 10000);
+        } catch (_) {}
       }
-      try {
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank', 'noopener');
-        setTimeout(() => URL.revokeObjectURL(url), 10000);
-      } catch (_) {}
     }
 
     function parseCsvLine(line) {
