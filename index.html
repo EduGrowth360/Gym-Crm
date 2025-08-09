@@ -129,7 +129,7 @@
               <option value="Expired">Expired</option>
               <option value="Not Interested">Not Interested</option>
             </select>
-            <!-- Manual lock -->
+            <!-- Manual lock (kept for UI, no longer affects automation) -->
             <label class="mt-2 inline-flex items-center gap-2 text-sm text-gray-700">
               <input type="checkbox" id="lockStatus" class="rounded border-gray-300">
               Lock status (manual)
@@ -301,27 +301,18 @@
       return end <= soon && end >= today;
     }
 
-    // Status logic (respects manual lock)
+    // Status logic (lock ignored; Trial stays put, others computed from dates)
     function getCorrectStatus(data) {
-      // Manual override: never auto-move
-      if (data.manual === true) return data.status;
-
-      // Trials never auto-move; only style them if overdue
+      // Trial never auto-moves; overdue trial is visual only
       if (data.status === 'Trial') return 'Trial';
 
-      // Non-trial: expired forces Expired
-      if (data.endDate && isExpired(data.endDate)) return 'Expired';
+      if (data.endDate) {
+        if (isExpired(data.endDate)) return 'Expired';
+        if (isExpiringSoon(data.endDate)) return 'Expiring Soon';
+        return 'Active';
+      }
 
-      // Non-trial: expiring soon
-      if (data.endDate && isExpiringSoon(data.endDate)) return 'Expiring Soon';
-
-      // Follow-Up / Not Interested stay
-      if (data.status === 'Follow-Up' || data.status === 'Not Interested') return data.status;
-
-      // Otherwise with endDate -> Active
-      if (data.endDate) return 'Active';
-
-      // Fallback
+      if (data.status === 'Not Interested') return 'Not Interested';
       return 'Follow-Up';
     }
 
@@ -368,6 +359,7 @@
       const initialStatus = data.status;
       data.status = getCorrectStatus(data);
       data.id = `client-${Date.now()}`;
+      data.statusSince = Date.now(); // track start of this status
       data.history = [{ action: `Client added with status: ${initialStatus}`, timestamp: new Date().toLocaleString() }];
       allClients.push(data);
       saveClientsToLocalStorage();
@@ -376,9 +368,14 @@
     function updateCard(card, data) {
       const oldData = allClients.find(c => c.id === card.id) || {};
       const oldStatus = oldData.status;
-      data.status = getCorrectStatus(data);
-      const historyEntry = { action: `Client updated from ${oldStatus} to ${data.status}`, timestamp: new Date().toLocaleString() };
+      const newStatus = getCorrectStatus(data);
+
+      data.status = newStatus;
+      data.statusSince = (oldStatus !== newStatus) ? Date.now() : (oldData.statusSince || Date.now());
+
+      const historyEntry = { action: `Client updated from ${oldStatus} to ${newStatus}`, timestamp: new Date().toLocaleString() };
       data.history = oldData.history ? [...oldData.history, historyEntry] : [historyEntry];
+
       const idx = allClients.findIndex(c => c.id === card.id);
       if (idx > -1) allClients[idx] = { ...data, id: card.id };
       saveClientsToLocalStorage();
@@ -403,25 +400,68 @@
       }
     });
 
-    // Auto reclassify at midnight + on load (skips manual)
+    // Days since helper
+    function daysSince(ts) {
+      if (!ts) return 0;
+      const start = new Date(ts);
+      const today = new Date();
+      start.setHours(0,0,0,0);
+      today.setHours(0,0,0,0);
+      return Math.floor((today - start) / (1000 * 60 * 60 * 24));
+    }
+
+    // Auto engine: date-based + aging (applies to all)
     function checkAndMoveClients() {
       let changed = false;
+
       allClients.forEach(client => {
-        const oldStatus = client.status;
-
-        // Skip auto rules if manual lock is on
-        if (client.manual === true) return;
-
-        client.status = getCorrectStatus(client);
-        if (oldStatus !== client.status) {
+        // 1) Date-based rules (Active -> Expiring Soon; -> Expired)
+        const computed = getCorrectStatus(client);
+        if (computed !== client.status) {
+          client.status = computed;
+          client.statusSince = Date.now();
           client.history = client.history || [];
-          client.history.push({ action: `Status automatically updated to ${client.status}`, timestamp: new Date().toLocaleString() });
+          client.history.push({
+            action: `Status automatically updated to ${client.status}`,
+            timestamp: new Date().toLocaleString()
+          });
           addNotification(`${client.name} moved to ${client.status}`);
           changed = true;
         }
+
+        // 2) Aging rules
+        // Expired for 7+ days -> Follow-Up
+        if (client.status === 'Expired' && daysSince(client.statusSince) >= 7) {
+          client.status = 'Follow-Up';
+          client.statusSince = Date.now();
+          client.history.push({
+            action: `Aging rule: Expired for 7 days → Follow-Up`,
+            timestamp: new Date().toLocaleString()
+          });
+          addNotification(`${client.name} moved to Follow-Up (aging from Expired).`);
+          changed = true;
+        }
+
+        // Follow-Up for 7+ days -> Not Interested
+        if (client.status === 'Follow-Up' && daysSince(client.statusSince) >= 7) {
+          client.status = 'Not Interested';
+          client.statusSince = Date.now();
+          client.history.push({
+            action: `Aging rule: Follow-Up for 7 days → Not Interested`,
+            timestamp: new Date().toLocaleString()
+          });
+          addNotification(`${client.name} moved to Not Interested (aging from Follow-Up).`);
+          changed = true;
+        }
       });
-      if (changed) { saveClientsToLocalStorage(); renderAllClients(); }
+
+      if (changed) {
+        saveClientsToLocalStorage();
+        renderAllClients();
+      }
     }
+
+    // Midnight + periodic checks
     function scheduleMidnightCheck() {
       const now = new Date(); const next = new Date(now);
       next.setHours(24,0,0,0);
@@ -445,10 +485,7 @@
       document.getElementById('phone').value = data.phone;
       document.getElementById('email').value = data.email;
       document.getElementById('status').value = newStatus;
-
-      // default to manual lock for a drag action so your move sticks
-      document.getElementById('lockStatus').checked = true;
-
+      document.getElementById('lockStatus').checked = true; // UI nicety (no functional effect now)
       document.getElementById('startDate').value = data.startDate || '';
       document.getElementById('endDate').value = data.endDate || '';
       document.getElementById('note').value = data.note || '';
@@ -463,7 +500,7 @@
       if (card) e.dataTransfer.setData('cardId', card.id);
     });
 
-    // Click handlers on board
+    // Card clicks
     board.addEventListener('click', (e) => {
       const card = e.target.closest('.card');
       if (!card) return;
@@ -497,7 +534,6 @@
         <p><strong>Start Date:</strong> ${data.startDate || 'N/A'}</p>
         <p><strong>End Date:</strong> ${data.endDate || 'N/A'}</p>
         <p><strong>Note:</strong> ${data.note || 'N/A'}</p>
-        <p><strong>Locked:</strong> ${data.manual ? 'Yes' : 'No'}</p>
       `;
       if (data.history && data.history.length) {
         let hist = '<div class="history-list mt-4 border-t pt-4"><h3 class="font-bold text-gray-700">Action History</h3>';
@@ -521,7 +557,7 @@
       document.getElementById('startDate').value = data.startDate || '';
       document.getElementById('endDate').value = data.endDate || '';
       document.getElementById('note').value = data.note || '';
-      document.getElementById('lockStatus').checked = (data.manual === true); // reflect manual lock
+      document.getElementById('lockStatus').checked = true; // UI nicety
       submitButton.textContent = 'Update Client';
       cancelButton.classList.remove('hidden');
       handleStatusChange();
@@ -566,7 +602,6 @@
       const startDate = document.getElementById('startDate').value;
       const endDate = document.getElementById('endDate').value;
       const note = document.getElementById('note').value.trim();
-      const manual = document.getElementById('lockStatus').checked;
 
       if (!/^[0-9]{10}$/.test(phone)) { showMessageBox('Please enter a valid 10-digit mobile number.'); return; }
       if (!startDate && status !== 'Not Interested') { showMessageBox('A start date is required.'); return; }
@@ -578,15 +613,9 @@
       const currentId = currentEditingCard ? currentEditingCard.id : null;
       if (isPhoneNumberDuplicate(phone, currentId)) { showMessageBox('This phone number already exists.'); return; }
 
-      let data = { name, phone, email, status, startDate, endDate, note, manual };
+      const data = { name, phone, email, status, startDate, endDate, note };
 
       if (currentEditingCard) {
-        const oldData = allClients.find(c => c.id === currentEditingCard.id) || {};
-        // If status changed and user didn't explicitly lock, we lock it so the change sticks
-        if (oldData.status !== status && manual === false) {
-          data.manual = true;
-          document.getElementById('lockStatus').checked = true;
-        }
         updateCard(currentEditingCard, data);
         addNotification(`${name} updated to ${getCorrectStatus(data)}`);
         currentEditingCard = null;
@@ -612,9 +641,16 @@
     // Init
     window.addEventListener('DOMContentLoaded', () => {
       checkLoginStatus();
-      handleStatusChange(); // ensure Follow-Up hides end date at first render
+      handleStatusChange(); // Follow-Up hides end date at first render
       scheduleMidnightCheck();
       checkAndMoveClients();
+
+      // also check every minute and on tab focus
+      setInterval(checkAndMoveClients, 60 * 1000);
+      window.addEventListener('focus', checkAndMoveClients);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) checkAndMoveClients();
+      });
     });
 
     // PWA (optional)
@@ -645,12 +681,11 @@
           await writable.close();
           return;
         } catch (err) {
-          // user cancelled or not allowed -> fallback
           console.debug('showSaveFilePicker failed:', err);
         }
       }
 
-      // 2) Anchor fallback (may auto-save to Downloads based on browser settings)
+      // 2) Anchor fallback
       try {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -665,7 +700,7 @@
         console.debug('anchor download failed:', err);
       }
 
-      // 3) Last resort: open in a new tab and let user File → Save As
+      // 3) Last resort: open in a new tab
       try {
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank', 'noopener');
@@ -680,43 +715,4 @@
     }
     function importCsvFile(file) {
       const reader = new FileReader();
-      reader.onload = e => {
-        const text = e.target.result.trim();
-        const lines = text.split(/\r?\n/);
-        const header = lines.shift().split(',').map(h => h.trim());
-        const idx = key => header.indexOf(key);
-        lines.forEach(line => {
-          if (!line) return;
-          const cols = parseCsvLine(line);
-          const data = {
-            name: cols[idx('name')] || '',
-            phone: cols[idx('phone')] || '',
-            email: cols[idx('email')] || '',
-            status: cols[idx('status')] || 'Follow-Up',
-            startDate: cols[idx('startDate')] || '',
-            endDate: cols[idx('endDate')] || '',
-            note: cols[idx('note')] || '',
-            manual: false
-          };
-          if (!isPhoneNumberDuplicate(data.phone)) {
-            data.id = `client-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
-            data.status = getCorrectStatus(data);
-            data.history = [{ action: 'Imported via CSV', timestamp: new Date().toLocaleString() }];
-            allClients.push(data);
-          }
-        });
-        saveClientsToLocalStorage();
-        renderAllClients();
-        addNotification('Import finished');
-      };
-      reader.readAsText(file);
-    }
-    document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
-    document.getElementById('importCsvInput').addEventListener('change', (e) => {
-      const f = e.target.files[0];
-      if (f) importCsvFile(f);
-      e.target.value = '';
-    });
-  </script>
-</body>
-</html>
+      reader.onload =
