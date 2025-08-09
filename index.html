@@ -22,7 +22,6 @@
     .history-list { max-height: 200px; overflow-y: auto; border-top: 1px solid #e5e7eb; padding-top: 1rem; margin-top: 1rem; }
     .history-item { background: #f3f4f6; padding: .5rem; border-radius: .5rem; margin-bottom: .5rem; }
     .overflow-text-container { overflow-x: auto; white-space: nowrap; }
-
     /* Overdue Trial: full red card with white text */
     .overdue-trial {
       background-color: #ef4444 !important; /* red-500 */
@@ -129,7 +128,7 @@
               <option value="Expired">Expired</option>
               <option value="Not Interested">Not Interested</option>
             </select>
-            <!-- Manual lock (kept for UI, no longer affects automation) -->
+            <!-- Optional manual lock (now ignored by automation; kept for UI continuity) -->
             <label class="mt-2 inline-flex items-center gap-2 text-sm text-gray-700">
               <input type="checkbox" id="lockStatus" class="rounded border-gray-300">
               Lock status (manual)
@@ -207,9 +206,6 @@
     const closeMessageBox = document.getElementById('closeMessageBox');
     const profileModal = document.getElementById('profileModal');
     const profileContent = document.getElementById('profileContent');
-    const closeProfileModalBtn = document.getElementById('closeProfileModal');
-    const editProfileBtn = document.getElementById('editProfileBtn');
-    const deleteProfileBtn = document.getElementById('deleteProfileBtn');
 
     let userRole = localStorage.getItem('role') || 'admin';
     let currentEditingCard = null;
@@ -274,14 +270,14 @@
       else { start.style.display = 'block'; end.style.display = 'block'; }
     }
 
-    // Parse YYYY-MM-DD as LOCAL date (avoid UTC shift)
+    // Parse YYYY-MM-DD as LOCAL date
     function parseLocalDate(str) {
       if (!str) return null;
       const [y, m, d] = str.split('-').map(Number);
       return new Date(y, m - 1, d);
     }
 
-    // Date helpers (use local parsing)
+    // Date helpers
     function isExpired(endDate) {
       if (!endDate) return false;
       const today = new Date();
@@ -301,17 +297,29 @@
       return end <= soon && end >= today;
     }
 
-    // Status logic (lock ignored; Trial stays put, others computed from dates)
+    // Days since timestamp (status aging)
+    function daysSince(ts) {
+      if (!ts) return 0;
+      const start = new Date(ts);
+      const today = new Date();
+      start.setHours(0,0,0,0);
+      today.setHours(0,0,0,0);
+      return Math.floor((today - start) / (1000 * 60 * 60 * 24));
+    }
+
+    // Status logic (automation applies to all; Trial stays put)
     function getCorrectStatus(data) {
-      // Trial never auto-moves; overdue trial is visual only
+      // Trials never auto-move columns; only visual overdue highlight handled on render
       if (data.status === 'Trial') return 'Trial';
 
+      // If we have an end date, compute by date
       if (data.endDate) {
         if (isExpired(data.endDate)) return 'Expired';
         if (isExpiringSoon(data.endDate)) return 'Expiring Soon';
         return 'Active';
       }
 
+      // No end date cases
       if (data.status === 'Not Interested') return 'Not Interested';
       return 'Follow-Up';
     }
@@ -359,7 +367,7 @@
       const initialStatus = data.status;
       data.status = getCorrectStatus(data);
       data.id = `client-${Date.now()}`;
-      data.statusSince = Date.now(); // track start of this status
+      data.statusSince = Date.now(); // track when this status started
       data.history = [{ action: `Client added with status: ${initialStatus}`, timestamp: new Date().toLocaleString() }];
       allClients.push(data);
       saveClientsToLocalStorage();
@@ -400,22 +408,12 @@
       }
     });
 
-    // Days since helper
-    function daysSince(ts) {
-      if (!ts) return 0;
-      const start = new Date(ts);
-      const today = new Date();
-      start.setHours(0,0,0,0);
-      today.setHours(0,0,0,0);
-      return Math.floor((today - start) / (1000 * 60 * 60 * 24));
-    }
-
-    // Auto engine: date-based + aging (applies to all)
+    // Auto reclassify engine (runs for all cards)
     function checkAndMoveClients() {
       let changed = false;
 
       allClients.forEach(client => {
-        // 1) Date-based rules (Active -> Expiring Soon; -> Expired)
+        // 1) Date-based rules (Active -> Expiring Soon, -> Expired)
         const computed = getCorrectStatus(client);
         if (computed !== client.status) {
           client.status = computed;
@@ -441,7 +439,6 @@
           addNotification(`${client.name} moved to Follow-Up (aging from Expired).`);
           changed = true;
         }
-
         // Follow-Up for 7+ days -> Not Interested
         if (client.status === 'Follow-Up' && daysSince(client.statusSince) >= 7) {
           client.status = 'Not Interested';
@@ -460,8 +457,6 @@
         renderAllClients();
       }
     }
-
-    // Midnight + periodic checks
     function scheduleMidnightCheck() {
       const now = new Date(); const next = new Date(now);
       next.setHours(24,0,0,0);
@@ -480,12 +475,11 @@
       const data = allClients.find(c => c.id === cardId);
       const newStatus = newColumn.id;
 
-      // Prefill form for edit
+      // Prefill form for edit (drag triggers an edit)
       document.getElementById('name').value = data.name;
       document.getElementById('phone').value = data.phone;
       document.getElementById('email').value = data.email;
       document.getElementById('status').value = newStatus;
-      document.getElementById('lockStatus').checked = true; // UI nicety (no functional effect now)
       document.getElementById('startDate').value = data.startDate || '';
       document.getElementById('endDate').value = data.endDate || '';
       document.getElementById('note').value = data.note || '';
@@ -500,7 +494,7 @@
       if (card) e.dataTransfer.setData('cardId', card.id);
     });
 
-    // Card clicks
+    // Click handlers (open profile, delete)
     board.addEventListener('click', (e) => {
       const card = e.target.closest('.card');
       if (!card) return;
@@ -557,15 +551,13 @@
       document.getElementById('startDate').value = data.startDate || '';
       document.getElementById('endDate').value = data.endDate || '';
       document.getElementById('note').value = data.note || '';
-      document.getElementById('lockStatus').checked = true; // UI nicety
+      profileModal.classList.add('hidden');
       submitButton.textContent = 'Update Client';
       cancelButton.classList.remove('hidden');
       handleStatusChange();
-      profileModal.classList.add('hidden');
     });
     document.getElementById('deleteProfileBtn').addEventListener('click', () => {
       if (!currentViewingCard) return;
-      if (userRole === 'receptionist') { showMessageBox('Receptionists cannot delete clients.'); return; }
       const clientData = allClients.find(c => c.id === currentViewingCard.id);
       const idx = allClients.findIndex(c => c.id === clientData.id);
       if (idx > -1) allClients.splice(idx, 1);
@@ -602,14 +594,14 @@
       const startDate = document.getElementById('startDate').value;
       const endDate = document.getElementById('endDate').value;
       const note = document.getElementById('note').value.trim();
-
+      // phone must be 10 digits
       if (!/^[0-9]{10}$/.test(phone)) { showMessageBox('Please enter a valid 10-digit mobile number.'); return; }
-      if (!startDate && status !== 'Not Interested') { showMessageBox('A start date is required.'); return; }
+      // Follow-Up requires start only; Not Interested requires none; others require both
+      if (status !== 'Not Interested' && !startDate) { showMessageBox('A start date is required.'); return; }
       if (status !== 'Follow-Up' && status !== 'Not Interested' && !endDate) { showMessageBox('An end date is required for this status.'); return; }
-      if (status !== 'Follow-Up' && status !== 'Not Interested' && startDate && endDate && new Date(parseLocalDate(startDate)) > new Date(parseLocalDate(endDate))) {
+      if (status !== 'Follow-Up' && status !== 'Not Interested' && startDate && endDate && parseLocalDate(startDate) > parseLocalDate(endDate)) {
         showMessageBox('The end date cannot be before the start date.'); return;
       }
-
       const currentId = currentEditingCard ? currentEditingCard.id : null;
       if (isPhoneNumberDuplicate(phone, currentId)) { showMessageBox('This phone number already exists.'); return; }
 
@@ -641,16 +633,13 @@
     // Init
     window.addEventListener('DOMContentLoaded', () => {
       checkLoginStatus();
-      handleStatusChange(); // Follow-Up hides end date at first render
+      handleStatusChange();
       scheduleMidnightCheck();
       checkAndMoveClients();
-
-      // also check every minute and on tab focus
-      setInterval(checkAndMoveClients, 60 * 1000);
+      // run frequently
+      setInterval(checkAndMoveClients, 60 * 1000); // every minute
       window.addEventListener('focus', checkAndMoveClients);
-      document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) checkAndMoveClients();
-      });
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) checkAndMoveClients(); });
     });
 
     // PWA (optional)
@@ -664,12 +653,13 @@
     function toCsvValue(val = '') { return '"' + String(val).replace(/"/g, '""') + '"'; }
 
     async function exportCsv() {
-      const header = ['name','phone','email','status','startDate','endDate','note'];
-      const rows = allClients.map(c => [c.name,c.phone,c.email,c.status,c.startDate,c.endDate,c.note].map(toCsvValue).join(','));
+      const header = ['name','phone','email','status','startDate','endDate','note','statusSince'];
+      const rows = allClients.map(c =>
+        [c.name,c.phone,c.email,c.status,c.startDate,c.endDate,c.note,c.statusSince || ''].map(toCsvValue).join(',')
+      );
       const csv = '\uFEFF' + header.join(',') + '\n' + rows.join('\n'); // BOM for Excel
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
 
-      // 1) Save As dialog on supported browsers (Chromium, HTTPS / localhost)
       if (window.showSaveFilePicker) {
         try {
           const handle = await window.showSaveFilePicker({
@@ -684,8 +674,6 @@
           console.debug('showSaveFilePicker failed:', err);
         }
       }
-
-      // 2) Anchor fallback
       try {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -699,8 +687,6 @@
       } catch (err) {
         console.debug('anchor download failed:', err);
       }
-
-      // 3) Last resort: open in a new tab
       try {
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank', 'noopener');
@@ -709,10 +695,51 @@
     }
 
     function parseCsvLine(line) {
-      // split on commas not inside quotes
-      const re = /,(?=(?:[^"]*"[^"]*")*[^"]*$)/g;
+      const re = /,(?=(?:[^"]*"[^"]*")*[^"]*$)/g; // split on commas not inside quotes
       return line.split(re).map(s => s.replace(/^"|"$/g, '').replace(/""/g, '"'));
     }
     function importCsvFile(file) {
       const reader = new FileReader();
-      reader.onload =
+      reader.onload = e => {
+        const text = e.target.result.trim();
+        const lines = text.split(/\r?\n/);
+        const header = lines.shift().split(',').map(h => h.trim());
+        const idx = key => header.indexOf(key);
+        lines.forEach(line => {
+          if (!line) return;
+          const cols = parseCsvLine(line);
+          const data = {
+            name: cols[idx('name')] || '',
+            phone: cols[idx('phone')] || '',
+            email: cols[idx('email')] || '',
+            status: cols[idx('status')] || 'Follow-Up',
+            startDate: cols[idx('startDate')] || '',
+            endDate: cols[idx('endDate')] || '',
+            note: cols[idx('note')] || '',
+            statusSince: Number(cols[idx('statusSince')]) || Date.now()
+          };
+          if (!/^[0-9]{10}$/.test(data.phone)) return; // skip bad phones on import
+          if (!isPhoneNumberDuplicate(data.phone)) {
+            data.id = `client-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+            // compute status fresh (then keep statusSince from file)
+            const computed = getCorrectStatus(data);
+            data.status = computed;
+            data.history = [{ action: 'Imported via CSV', timestamp: new Date().toLocaleString() }];
+            allClients.push(data);
+          }
+        });
+        saveClientsToLocalStorage();
+        renderAllClients();
+        addNotification('Import finished');
+      };
+      reader.readAsText(file);
+    }
+    document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
+    document.getElementById('importCsvInput').addEventListener('change', (e) => {
+      const f = e.target.files[0];
+      if (f) importCsvFile(f);
+      e.target.value = '';
+    });
+  </script>
+</body>
+</html>
