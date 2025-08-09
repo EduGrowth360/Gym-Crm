@@ -22,7 +22,6 @@
     .history-list { max-height: 200px; overflow-y: auto; border-top: 1px solid #e5e7eb; padding-top: 1rem; margin-top: 1rem; }
     .history-item { background: #f3f4f6; padding: .5rem; border-radius: .5rem; margin-bottom: .5rem; }
     .overflow-text-container { overflow-x: auto; white-space: nowrap; }
-
     /* Overdue Trial: full red card with white text */
     .overdue-trial {
       background-color: #ef4444 !important; /* red-500 */
@@ -309,24 +308,16 @@
       return Math.floor((today - start) / (1000 * 60 * 60 * 24));
     }
 
-    // Status logic
+    // Status logic (Trial stays; Follow-Up/Not Interested ignore dates)
     function getCorrectStatus(data) {
-      // Trial never auto-moves; only visual red if overdue
       if (data.status === 'Trial') return 'Trial';
+      if (data.status === 'Follow-Up' || data.status === 'Not Interested') return data.status;
 
-      // Manual/lead statuses override dates to prevent loops and allow instant decisions
-      if (data.status === 'Follow-Up' || data.status === 'Not Interested') {
-        return data.status;
-      }
-
-      // Date-based for everything else
       if (data.endDate) {
         if (isExpired(data.endDate)) return 'Expired';
         if (isExpiringSoon(data.endDate)) return 'Expiring Soon';
         return 'Active';
       }
-
-      // No end date -> Follow-Up
       return 'Follow-Up';
     }
 
@@ -414,12 +405,12 @@
       }
     });
 
-    // Auto engine (runs for all cards)
+    // Auto engine (Active→Soon/Expired, Expired 7d→Follow-Up)
     function checkAndMoveClients() {
       let changed = false;
 
       allClients.forEach(client => {
-        // 1) Date-based rules (Active -> Expiring Soon, -> Expired). Follow-Up/Not Interested are immune by design in getCorrectStatus.
+        // 1) Date-based rules
         const computed = getCorrectStatus(client);
         if (computed !== client.status) {
           client.status = computed;
@@ -433,11 +424,10 @@
           changed = true;
         }
 
-        // 2) Aging rules
-        // Expired for 7+ days -> Follow-Up
+        // 2) Aging: Expired for 7+ days -> Follow-Up
         if (client.status === 'Expired' && daysSince(client.statusSince) >= 7) {
           client.status = 'Follow-Up';
-          // Optional: clear endDate so it doesn't confuse reception
+          // Optional: clear endDate to avoid confusion
           // client.endDate = '';
           client.statusSince = Date.now();
           client.history.push({
@@ -445,17 +435,6 @@
             timestamp: new Date().toLocaleString()
           });
           addNotification(`${client.name} moved to Follow-Up (aging from Expired).`);
-          changed = true;
-        }
-        // Follow-Up for 7+ days -> Not Interested
-        if (client.status === 'Follow-Up' && daysSince(client.statusSince) >= 7) {
-          client.status = 'Not Interested';
-          client.statusSince = Date.now();
-          client.history.push({
-            action: `Aging rule: Follow-Up for 7 days → Not Interested`,
-            timestamp: new Date().toLocaleString()
-          });
-          addNotification(`${client.name} moved to Not Interested (aging from Follow-Up).`);
           changed = true;
         }
       });
